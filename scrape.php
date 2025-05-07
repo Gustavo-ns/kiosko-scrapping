@@ -1,12 +1,10 @@
 <?php
 // scrape.php
 
-// 1) Silenciar warnings deprecados de PHP 8+
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 
-// 2) Ignorar mensajes específicos de deprecado (strtolower y getIterator)
 set_error_handler(function($severity, $message) {
     if ($severity === E_DEPRECATED
         && (strpos($message, 'strtolower(): Passing null') !== false
@@ -16,7 +14,6 @@ set_error_handler(function($severity, $message) {
     return false;
 }, E_DEPRECATED);
 
-// 3) Cargar autoloader silenciando warnings
 @require 'vendor/autoload.php';
 $config = require 'config.php';
 
@@ -24,7 +21,6 @@ use Goutte\Client;
 use PDO;
 use GuzzleHttp\Psr7\Uri;
 
-// Conexión a la base de datos
 $pdo = new PDO(
     "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset={$config['db']['charset']}",
     $config['db']['user'],
@@ -32,8 +28,39 @@ $pdo = new PDO(
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
 );
 
-// Cliente Goutte para scraping
 $client = new Client();
+
+function saveImageLocally($url, $country, $title) {
+    $ext = pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION);
+    $slug = preg_replace('/[^a-z0-9]+/i', '-', strtolower($title));
+    $filename = $country . '_' . $slug . '_' . uniqid() . '.' . $ext;
+    $directory = __DIR__ . '/images/';
+    $path = $directory . $filename;
+
+    if (!is_dir($directory)) {
+        mkdir($directory, 0777, true);
+    }
+
+    try {
+        $imageData = file_get_contents($url);
+        if ($imageData === false) return false;
+
+        // Crear imagen desde el flujo de datos
+        $imagick = new Imagick();
+        $imagick->readImageBlob($imageData);
+
+        // Redimensionar la imagen (ancho 300px, manteniendo la relación de aspecto)
+        $imagick->resizeImage(300, 0, Imagick::FILTER_LANCZOS, 1);
+
+        // Guardar la imagen redimensionada
+        $imagick->writeImage($path);
+
+        return 'images/' . $filename;
+    } catch (Exception $e) {
+        error_log("No se pudo guardar la imagen redimensionada: $url");
+        return false;
+    }
+}
 
 foreach ($config['sites'] as $country => $configs) {
     foreach ($configs as $conf) {
@@ -42,7 +69,6 @@ foreach ($config['sites'] as $country => $configs) {
 
             if (!empty($conf['multiple'])) {
                 $crawler->filter($conf['selector'])->each(function($node) use ($conf, $country, $pdo, $client) {
-                    // Extraer datos de imagen y enlace
                     if (!empty($conf['followLinks'])) {
                         $link = $node->filter($conf['followLinks']['linkSelector'])->attr('href') ?? '';
                         $baseUri     = new Uri($conf['url']);
@@ -60,12 +86,15 @@ foreach ($config['sites'] as $country => $configs) {
                         $fullUri = null;
                     }
 
-                    // Comprobar duplicados antes de insertar
-                    $checkStmt = $pdo->prepare('SELECT 1 FROM covers WHERE country = :country AND image_url = :url LIMIT 1');
+                    // Evitar duplicados por URL original
+                    $checkStmt = $pdo->prepare('SELECT 1 FROM covers WHERE country = :country AND original_link = :url LIMIT 1');
                     $checkStmt->execute([':country' => $country, ':url' => $urlImg]);
                     $exists = $checkStmt->fetchColumn();
 
                     if (!$exists) {
+                        $localImg = saveImageLocally($urlImg, $country, $alt);
+                        if (!$localImg) return;
+
                         $insertStmt = $pdo->prepare(
                             "INSERT INTO covers (country, title, image_url, source, original_link)
                              VALUES (:country, :title, :image, :source, :link)"
@@ -73,33 +102,35 @@ foreach ($config['sites'] as $country => $configs) {
                         $insertStmt->execute([
                             ':country' => $country,
                             ':title'   => $alt,
-                            ':image'   => $urlImg,
-                            ':source'  => parse_url($conf['url'], PHP_URL_HOST),
-                            ':link'    => $fullUri ? (string)$fullUri : null,
+                            ':image'   => $localImg,
+                            ':source' => (string) $fullUri,
+                            ':link'    => $urlImg,
                         ]);
                     }
                 });
             } else {
-                // Único elemento
                 $img    = $crawler->filter($conf['selector'])->attr('src');
                 $alt    = $crawler->filter($conf['selector'])->attr('alt') ?: 'Unknown';
                 $urlImg = strpos($img, '//') === 0 ? 'https:'.$img : $img;
 
-                // Comprobar duplicados
-                $checkStmt = $pdo->prepare('SELECT 1 FROM covers WHERE country = :country AND image_url = :url LIMIT 1');
+                $checkStmt = $pdo->prepare('SELECT 1 FROM covers WHERE country = :country AND original_link = :url LIMIT 1');
                 $checkStmt->execute([':country' => $country, ':url' => $urlImg]);
                 $exists = $checkStmt->fetchColumn();
 
                 if (!$exists) {
+                    $localImg = saveImageLocally($urlImg, $country, $alt);
+                    if (!$localImg) continue;
+
                     $insertStmt = $pdo->prepare(
-                        "INSERT INTO covers (country, title, image_url, source)
-                         VALUES (:country, :title, :image, :source)"
+                        "INSERT INTO covers (country, title, image_url, source, original_link)
+                         VALUES (:country, :title, :image, :source, :link)"
                     );
                     $insertStmt->execute([
                         ':country' => $country,
                         ':title'   => $alt,
-                        ':image'   => $urlImg,
-                        ':source'  => parse_url($conf['url'], PHP_URL_HOST),
+                        ':image'   => $localImg,
+                        ':source' => (string) $fullUri,
+                        ':link'    => $urlImg,
                     ]);
                 }
             }
@@ -110,4 +141,4 @@ foreach ($config['sites'] as $country => $configs) {
     }
 }
 
-echo "Scraping finalizado.\n";
+echo "\nScraping finalizado a las " . date('H:i:s') . ".\n";

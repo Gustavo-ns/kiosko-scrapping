@@ -2,33 +2,89 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Portadas de periódicos de América Latina y el Caribe. Selecciona un país para ver las portadas más recientes.">
+  <meta name="keywords" content="portadas, periódicos, América Latina, Caribe, noticias, actualidad, prensa, medios de comunicación">
+  <meta name="author" content="Tu Nombre o el nombre de tu organización">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#ffffff">
   <title>Portadas de Periódicos</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" media="print" onload="this.media='all'">
+  <style>
+    body {
+  font-family: 'Bebas Neue', sans-serif;
+  background-color: #f4f4f4;
+  color: #474747;
+  margin: 0;
+  padding: 0;
+}
+
+.controls {
+  display: flex;
+    padding: 1rem;
+    background: #1e1e1e;
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-content: space-around;
+    justify-content: center;
+    align-items: center;
+}
+
+#countrySelect {
+  font-size: 1.2rem;
+  padding: 0.5rem 1rem;
+  background-color: #222;
+  color: #f0f0f0;
+  border: 2px solid #444;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+  padding: 3rem;
+  content-visibility: auto;
+  contain-intrinsic-size: 300px; /* tamaño estimado para evitar saltos */
+}
+  </style>
 </head>
 <body>
-  <div class="controls">
-    <select id="countrySelect">
-      <option value="">-- Todos los países --</option>
-      <option value="argentina">Argentina</option>
-      <option value="bolivia">Bolivia</option>
-      <option value="brasil">Brasil</option>
-      <option value="chile">Chile</option>
-      <option value="colombia">Colombia</option>
-      <option value="ecuador">Ecuador</option>
-      <option value="estados-unidos">Estados Unidos</option>
-      <option value="mexico">México</option>
-      <option value="panama">Panamá</option>
-      <option value="paraguay">Paraguay</option>
-      <option value="peru">Perú</option>
-      <option value="republica-dominicana">República Dominicana</option>
-      <option value="uruguay">Uruguay</option>
-      <option value="venezuela">Venezuela</option>
-    </select>
-    <button id="loadBtn">Cargar Portadas</button>
+  <div class="container">
+    <div class="controls">
+      <label for="countrySelect">Selecciona un país:</label>
+      <select id="countrySelect">
+        <option value="">-- Todos los países --</option>
+        <option value="argentina">Argentina</option>
+        <option value="bolivia">Bolivia</option>
+        <option value="brasil">Brasil</option>
+        <option value="chile">Chile</option>
+        <option value="colombia">Colombia</option>
+        <option value="ecuador">Ecuador</option>
+        <option value="usa">Estados Unidos</option>
+        <option value="mexico">México</option>
+        <option value="panama">Panamá</option>
+        <option value="paraguay">Paraguay</option>
+        <option value="peru">Perú</option>
+        <option value="dominicanRepublic">República Dominicana</option>
+        <option value="uruguay">Uruguay</option>
+        <option value="venezuela">Venezuela</option>
+      </select>
+    </div>
   </div>
   <div id="gallery" class="gallery"></div>
+  <div id="imageModal" class="modal">
+    <span class="close">&times;</span>
+    <div class="loader" id="modalLoader"></div>
+    <img id="modalImage" src="" alt="Imagen en modal">
+  </div>
+  
 
-
-  <script src="scripts.js"></script>
+<script src="scripts.js"></script>
 </body>
 </html>
