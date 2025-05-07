@@ -1,25 +1,30 @@
 <?php
 // scrape.php
-require 'vendor/autoload.php';
+
+// 1) Silenciar warnings deprecados de PHP 8+
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
+// 2) Ignorar mensajes específicos de deprecado (strtolower y getIterator)
+set_error_handler(function($severity, $message) {
+    if ($severity === E_DEPRECATED
+        && (strpos($message, 'strtolower(): Passing null') !== false
+            || strpos($message, 'Return type of Symfony\\Component\\DomCrawler\\Crawler::getIterator') !== false)) {
+        return true; // ignorar estos mensajes
+    }
+    return false; // procesar el resto
+}, E_DEPRECATED);
+
+// 3) Cargar autoloader sin mostrar advertencias
+@require 'vendor/autoload.php';
 $config = require 'config.php';
-
-try {
-    $pdo = new PDO(
-        "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset={$config['db']['charset']}",
-        $config['db']['user'],
-        $config['db']['pass'],
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-    echo "✅ Conexión a la base de datos exitosa.\n";
-} catch (PDOException $e) {
-    echo "❌ Error al conectar a la base de datos: " . $e->getMessage() . "\n";
-    exit(1);
-}
-
 
 use Goutte\Client;
 use PDO;
+use GuzzleHttp\Psr7\Uri;
 
+// Conexión a la base de datos
 $pdo = new PDO(
     "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset={$config['db']['charset']}",
     $config['db']['user'],
@@ -27,66 +32,53 @@ $pdo = new PDO(
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
 );
 
+// Cliente Goutte para scraping
 $client = new Client();
-
-// Elige una URL sencilla de tu configuración (por ejemplo 'argentina')
-$url = $config['sites']['argentina'][0]['url'];
-
-try {
-    $crawler = $client->request('GET', $url);
-    $status = $client->getResponse()->getStatusCode();
-    if ($status === 200) {
-        echo "✅ Conexión HTTP exitosa a $url (código $status).\n";
-    } else {
-        echo "⚠️ Respuesta HTTP $status al conectar con $url.\n";
-    }
-} catch (Exception $e) {
-    echo "❌ Error al hacer request a $url: " . $e->getMessage() . "\n";
-    exit(1);
-}
-
 
 foreach ($config['sites'] as $country => $configs) {
     foreach ($configs as $conf) {
         try {
+            // Petición inicial
             $crawler = $client->request('GET', $conf['url']);
+
             if (!empty($conf['multiple'])) {
                 $crawler->filter($conf['selector'])->each(function($node) use ($conf, $country, $pdo, $client) {
-                    // Si hay que seguir link
                     if (!empty($conf['followLinks'])) {
-                        $link = $node->filter($conf['followLinks']['linkSelector'])->attr('href');
-                        $full = (new \GuzzleHttp\Psr7\Uri($conf['url']))->resolve(new \GuzzleHttp\Psr7\Uri($link));
-                        $detail = $client->request('GET', (string)$full);
-                        $img = $detail->filter($conf['followLinks']['imageSelector'])->attr('src');
-                        $alt = @$node->filter('img')->attr('alt') ?: 'Unknown';
+                        $link = $node->filter($conf['followLinks']['linkSelector'])->attr('href') ?? '';
+                        $baseUri     = new Uri($conf['url']);
+                        $relativeUri = new Uri($link);
+                        $fullUri     = Uri::resolve($baseUri, $relativeUri);
+
+                        $detail = $client->request('GET', (string) $fullUri);
+                        $img    = $detail->filter($conf['followLinks']['imageSelector'])->attr('src');
+                        $alt    = $node->filter('img')->attr('alt') ?: 'Unknown';
                         $urlImg = strpos($img, '//') === 0 ? 'https:'.$img : $img;
                     } else {
-                        $img = $node->filter('img')->attr('src');
-                        $alt = $node->filter('img')->attr('alt') ?: 'Unknown';
+                        $img    = $node->filter('img')->attr('src');
+                        $alt    = $node->filter('img')->attr('alt') ?: 'Unknown';
                         $urlImg = strpos($img, '//') === 0 ? 'https:'.$img : $img;
-                        $full = null;
+                        $fullUri = null;
                     }
-                    // Inserta en BD
-                    $stmt = $pdo->prepare("
-                        INSERT INTO covers (country, title, image_url, source, original_link)
-                        VALUES (:country, :title, :image, :source, :link)
-                    ");
+
+                    $stmt = $pdo->prepare(
+                        "INSERT INTO covers (country, title, image_url, source, original_link) VALUES (:country, :title, :image, :source, :link)"
+                    );
                     $stmt->execute([
                         ':country' => $country,
                         ':title'   => $alt,
                         ':image'   => $urlImg,
                         ':source'  => parse_url($conf['url'], PHP_URL_HOST),
-                        ':link'    => $full ? (string)$full : null,
+                        ':link'    => $fullUri ? (string) $fullUri : null,
                     ]);
                 });
             } else {
-                $img = $crawler->filter($conf['selector'])->attr('src');
-                $alt = $crawler->filter($conf['selector'])->attr('alt') ?: 'Unknown';
+                $img    = $crawler->filter($conf['selector'])->attr('src');
+                $alt    = $crawler->filter($conf['selector'])->attr('alt') ?: 'Unknown';
                 $urlImg = strpos($img, '//') === 0 ? 'https:'.$img : $img;
-                $stmt = $pdo->prepare("
-                    INSERT INTO covers (country, title, image_url, source)
-                    VALUES (:country, :title, :image, :source)
-                ");
+
+                $stmt = $pdo->prepare(
+                    "INSERT INTO covers (country, title, image_url, source) VALUES (:country, :title, :image, :source)"
+                );
                 $stmt->execute([
                     ':country' => $country,
                     ':title'   => $alt,
@@ -95,9 +87,10 @@ foreach ($config['sites'] as $country => $configs) {
                 ]);
             }
         } catch (\Exception $e) {
-            error_log("Error scraping {$conf['url']}: ".$e->getMessage());
+            error_log("Error scraping {$conf['url']}: " . $e->getMessage());
             continue;
         }
     }
 }
+
 echo "Scraping finalizado.\n";
