@@ -28,31 +28,7 @@
   </div>
   <div id="gallery" class="gallery"></div>
 
-  <script>
-    document.getElementById('loadBtn').addEventListener('click', () => {
-      const country = document.getElementById('countrySelect').value;
-      const url = country ? `api.php?country=${country}` : 'api.php';
-      fetch(url)
-        .then(res => res.json())
-        .then(data => {
-          const g = document.getElementById('gallery');
-          g.innerHTML = '';
-          data.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-              <a href="${item.original_link||'#'}" target="_blank">
-                <img src="${item.image_url}" alt="${item.title}">
-              </a>
-              <div class="info">
-                <h3>${item.title}</h3>
-                <small>${item.country} — ${item.source}</small>
-              </div>
-            `;
-            g.appendChild(card);
-          });
-        });
-    });
-  </script>
+
+  <script src="scripts.js"></script>
 </body>
 </html>

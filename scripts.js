@@ -1,5 +1,4 @@
 // public/scripts.js
-
 window.addEventListener('DOMContentLoaded', () => {
     const loadBtn = document.getElementById('loadBtn');
     const countrySelect = document.getElementById('countrySelect');
