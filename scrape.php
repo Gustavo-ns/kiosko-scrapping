@@ -3,6 +3,20 @@
 require 'vendor/autoload.php';
 $config = require 'config.php';
 
+try {
+    $pdo = new PDO(
+        "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset={$config['db']['charset']}",
+        $config['db']['user'],
+        $config['db']['pass'],
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+    echo "✅ Conexión a la base de datos exitosa.\n";
+} catch (PDOException $e) {
+    echo "❌ Error al conectar a la base de datos: " . $e->getMessage() . "\n";
+    exit(1);
+}
+
+
 use Goutte\Client;
 use PDO;
 
@@ -14,6 +28,23 @@ $pdo = new PDO(
 );
 
 $client = new Client();
+
+// Elige una URL sencilla de tu configuración (por ejemplo 'argentina')
+$url = $config['sites']['argentina'][0]['url'];
+
+try {
+    $crawler = $client->request('GET', $url);
+    $status = $client->getResponse()->getStatusCode();
+    if ($status === 200) {
+        echo "✅ Conexión HTTP exitosa a $url (código $status).\n";
+    } else {
+        echo "⚠️ Respuesta HTTP $status al conectar con $url.\n";
+    }
+} catch (Exception $e) {
+    echo "❌ Error al hacer request a $url: " . $e->getMessage() . "\n";
+    exit(1);
+}
+
 
 foreach ($config['sites'] as $country => $configs) {
     foreach ($configs as $conf) {
