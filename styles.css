@@ -19,6 +19,21 @@ body {
 .controls label {
   color: #f0f0f0;
 }
+#refreshBtn {
+  font-size: 1.2rem;
+  margin-left: 1rem;
+  padding: 0.5rem 1rem;
+  background: #00ffd5;
+  border: none;
+  border-radius: 8px;
+  color: #1e1e1e;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+#refreshBtn:hover {
+  background: #00e0c0;
+}
+
 
 #countrySelect {
   font-size: 1.2rem;
@@ -41,6 +56,7 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 1.5rem;
   padding: 3rem;
+  min-height: 200px;
   content-visibility: auto;
   contain-intrinsic-size: 300px; /* tamaño estimado para evitar saltos */
 }
@@ -136,19 +152,24 @@ body {
 
 .card .zoom-icon {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0,0,0,0.6);
+  bottom: 0;
+  right: 0;
+  background: rgb(226 255 0);
   color: #fff;
   padding: 6px;
-  border-radius: 50%;
+  border-radius: 50% 0 0 50%;
+  font-size: 2em;
   cursor: pointer;
   z-index: 5;
-  transition: transform 0.3s;
+  transition: padding 0.3s;
 }
 
 .card .zoom-icon:hover {
   transform: scale(1.2);
+  padding-right: .6em;
+  background: linear-gradient(45deg, #eaff00, #ff00d4);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 0, 212, 0.6);
+  transition: transform 0.3s ease, padding 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* Modal */
@@ -187,7 +208,7 @@ body {
   z-index: 10;
 }
 
-#modalLoader {
+#modalLoader, #cargandoLoader {
   border: 8px solid #f3f3f3;
   border-top: 8px solid #555;
   border-radius: 50%;

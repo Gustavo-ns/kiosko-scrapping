@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const countrySelect = document.getElementById('countrySelect');
+  const refreshBtn    = document.getElementById('refreshBtn');
   const gallery = document.getElementById('gallery');
 
   // Modal
@@ -35,16 +36,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }    
   }
   
+  // Leer parámetro al cargar
+  const params = new URLSearchParams(window.location.search);
+  const initialCountry = params.get('country') || '';
+  countrySelect.value = initialCountry;
+
+  function updateURL(country) {
+    const url = new URL(window.location);
+    if (country) url.searchParams.set('country', country);
+    else url.searchParams.delete('country');
+    history.replaceState(null, '', url);
+  }
+
   function loadCovers() {
     const country = countrySelect.value;
-    const url = country ? `api.php?country=${encodeURIComponent(country)}` : 'api.php';
-
-    fetch(url)
-      .then(response => response.json())
+    updateURL(country);
+    const apiUrl = country
+      ? `api.php?country=${encodeURIComponent(country)}`
+      : 'api.php';
+      
+    gallery.innerHTML = '<div class="loader" id="cargandoLoader"></div>';
+    
+    fetch(apiUrl)
+      .then(res => res.json())
       .then(data => {
         gallery.innerHTML = '';
-
-        data.forEach(item => {
+        data.forEach((item, index) => {
           const card = document.createElement('div');
           card.className = 'card';
 
@@ -60,6 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
           img.alt = item.title;
           img.width = 325;
           img.height = 500;
+          
+          // ⚡️ Establecer fetchpriority=high solo para la primera imagen
+          if (index === 0) {
+            img.setAttribute('fetchpriority', 'high');
+          }
+
           img.onload = () => {
             img.classList.add('loaded');
             skeleton.remove();
@@ -90,9 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const h3 = document.createElement('h3');
           h3.textContent = item.title;
-
-          //const small = document.createElement('small');
-          //small.textContent = `${item.country} — ${item.source}`;
           
           const small = document.createElement('small');
 
@@ -120,6 +140,12 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
-  loadCovers();
   countrySelect.addEventListener('change', loadCovers);
+  refreshBtn.addEventListener('click', () => {
+    // Opcional: llamar al scraper en el servidor
+    fetch('scrape.php').then(() => loadCovers());
+  });
+
+  // Carga inicial
+  loadCovers();
 });

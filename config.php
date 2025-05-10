@@ -35,10 +35,18 @@ return [
                 ],
             ],
             [
-                'url'      => 'https://www.popular.com.py/',
-                'selector' => '.portada img',
+                'url' => 'https://www.popular.com.py/',
+                'selector' => '.portada a',
                 'multiple' => false,
+                'followLinks' => [
+                    'linkSelector' => null,
+                    'imageSelector' => null, // no hace falta, ya que el href es la imagen
+                ],
             ],
+            [
+                'url' => 'https://www.abc.com.py/edicion-impresa/',
+                'custom_extractor' => 'extractHiresFromFusionScript',
+            ],            
         ],
         'brasil' => [
             [

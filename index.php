@@ -10,9 +10,14 @@
   <meta name="theme-color" content="#ffffff">
   <title>Portadas de Periódicos</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  </noscript>
+  
   <link rel="stylesheet" href="styles.css" media="print" onload="this.media='all'">
   <style>
     body {
@@ -52,6 +57,22 @@
   content-visibility: auto;
   contain-intrinsic-size: 300px; /* tamaño estimado para evitar saltos */
 }
+
+.card {
+  position: relative;
+  overflow: hidden;
+  min-height: 500px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  overflow: hidden;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  will-change: transform;
+  content-visibility: auto;
+  contain-intrinsic-size: 300px; /* tamaño estimado para evitar saltos */
+}
   </style>
 </head>
 <body>
@@ -75,13 +96,19 @@
         <option value="uruguay">Uruguay</option>
         <option value="venezuela">Venezuela</option>
       </select>
+      <button id="refreshBtn">🔄 Actualizar</button>      
     </div>
   </div>
-  <div id="gallery" class="gallery"></div>
+  <div id="gallery" class="gallery">
+    <div class="card"></div>
+    <div class="card"></div>
+    <div class="card"></div>
+    <div class="card"></div>
+  </div>
   <div id="imageModal" class="modal">
     <span class="close">&times;</span>
     <div class="loader" id="modalLoader"></div>
-    <img id="modalImage" src="" alt="Imagen en modal">
+    <img id="modalImage" alt="Imagen en modal" style="display: none;">
   </div>
   
 
