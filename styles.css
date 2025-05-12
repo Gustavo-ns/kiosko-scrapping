@@ -89,17 +89,17 @@ body {
 .card {
   position: relative;
   overflow: hidden;
-  min-height: 500px;
+  height: 500px;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  overflow: hidden;
   transition: transform 0.4s ease, box-shadow 0.4s ease;
   cursor: pointer;
-  transform-style: preserve-3d;
+  display: grid;
+  grid-template-rows: auto 1fr auto; /* imagen - contenido - icono */
   will-change: transform;
   content-visibility: auto;
-  contain-intrinsic-size: 300px; /* tamaño estimado para evitar saltos */
+  contain-intrinsic-size: 300px;
 }
 
 .card:hover {
@@ -127,27 +127,19 @@ body {
   animation: shine 0.8s ease-out;
 }
 
-@keyframes shine {
-  0% {
-    transform: rotate(25deg) translate(-100%, -100%);
-  }
-  100% {
-    transform: rotate(25deg) translate(100%, 100%);
-  }
-}
-
 .card img {
   width: 100%;
-  height: auto;
+  height: 350px;
   display: block;
-  background-color: #d9d9d9; /* fondo gris claro como placeholder */
   object-fit: cover;
+  object-position: top; /* <-- Esto asegura que se vea desde arriba */
+  background-color: #d9d9d9;
   transition: opacity 0.3s ease;
-  opacity: 0.5; /* opacidad inicial para el efecto de carga */
+  opacity: 0.5;
 }
 
 .card img.loaded {
-  opacity: 1; /* opacidad completa cuando la imagen está cargada */
+  opacity: 1;
 }
 
 .card .zoom-icon {
@@ -171,6 +163,7 @@ body {
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 0, 212, 0.6);
   transition: transform 0.3s ease, padding 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
+
 
 /* Modal */
 #imageModal {

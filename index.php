@@ -9,7 +9,21 @@
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#ffffff">
   <title>Portadas de Periódicos</title>
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <!-- Favicon básico -->
+  <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
+
+  <!-- Apple Touch Icon -->
+  <link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180x180.png">
+
+  <!-- Android -->
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon/favicon-192x192.png">
+
+  <!-- PWA y alta resolución -->
+  <link rel="icon" type="image/png" sizes="512x512" href="favicon/favicon-512x512.png">
+
+  <link rel="manifest" href="manifest.json">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -104,6 +118,8 @@
     <div class="card"></div>
     <div class="card"></div>
     <div class="card"></div>
+    <div class="card"></div>
+    <div class="card"></div>
   </div>
   <div id="imageModal" class="modal">
     <span class="close">&times;</span>
@@ -112,6 +128,14 @@
   </div>
   
 
-<script src="scripts.js"></script>
+<script src="scripts.js" defer></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('SW registrado:', reg.scope))
+      .catch(err => console.error('Error SW:', err));
+  }
+</script>
+
 </body>
 </html>

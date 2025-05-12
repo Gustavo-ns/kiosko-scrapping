@@ -16,18 +16,41 @@ set_error_handler(function($severity, $message) {
 
 echo "\nScraping iniciado a las " . date('H:i:s') . ".\n";
 
-@require 'vendor/autoload.php';
+// Validar autoload de Composer
+if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
+    die("Falta vendor/autoload.php. Ejecuta composer install.\n");
+}
+require 'vendor/autoload.php';
+
+// Validar Imagick
+if (!extension_loaded('imagick')) {
+    die("La extensión Imagick no está habilitada.\n");
+}
+
 $config = require 'config.php';
 
 use Goutte\Client;
 use PDO;
 use GuzzleHttp\Psr7\Uri;
+use GuzzleHttp\Client as GuzzleClient;
 
-///////////////////////////
-// Cambia a false si no quieres limpiar la carpeta de imágenes al iniciar
-$limpiarInicial = false; 
-if ($limpiarInicial) {
-    // Limpiar carpeta de imágenes al iniciar
+$pdo = new PDO(
+    "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset={$config['db']['charset']}",
+    $config['db']['user'],
+    $config['db']['pass'],
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+);
+
+// Obtener la última fecha de scraping desde la base de datos
+$stmt = $pdo->prepare("SELECT value FROM configs WHERE name = 'last_scrape_date'");
+$stmt->execute();
+$lastScrapeDate = $stmt->fetchColumn() ?: '2000-01-01';
+
+$hoy = date('Y-m-d');
+if ($lastScrapeDate !== $hoy) {
+    echo "Limpiando imágenes y reiniciando base de datos (última fecha: $lastScrapeDate)...\n";
+
+    // Limpiar carpeta de imágenes
     $imagesDir = __DIR__ . '/images/';
     if (is_dir($imagesDir)) {
         $files = glob($imagesDir . '*');
@@ -37,56 +60,50 @@ if ($limpiarInicial) {
     } else {
         mkdir($imagesDir, 0777, true);
     }
-    
-    // Conexión a la base de datos
-    $pdo = new PDO(
-        "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset={$config['db']['charset']}",
-        $config['db']['user'],
-        $config['db']['pass'],
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-    
-    // Limpiar tabla covers antes de insertar
+
+    // Limpiar tabla covers
     $pdo->exec('TRUNCATE TABLE covers');
+
+    // Actualizar la fecha de última ejecución
+    $update = $pdo->prepare("REPLACE INTO configs (name, value) VALUES ('last_scrape_date', :fecha)");
+    $update->execute([':fecha' => $hoy]);
 }
-///////////////////////////
 
 $client = new Client();
+$guzzle = new GuzzleClient(['headers' => ['User-Agent' => 'Mozilla/5.0']]);
 
 function saveImageLocally($url, $country, $title) {
+    global $guzzle;
     if (empty($url)) {
         error_log("URL vacía en saveImageLocally para $title ($country)");
         return false;
     }
 
-    // Preparar nombres
     $slug = preg_replace('/[^a-z0-9]+/i', '-', strtolower($title));
     $filename = "{$country}_{$slug}_" . uniqid() . ".webp";
     $path = __DIR__ . '/images/' . $filename;
 
     try {
-        $imageData = file_get_contents($url);
-        if ($imageData === false) return false;
+        $response = $guzzle->get($url);
+        $imageData = $response->getBody()->getContents();
 
         $imagick = new Imagick();
         $imagick->readImageBlob($imageData);
 
-        // Convertir a RGB si es necesario
         if ($imagick->getImageColorspace() === Imagick::COLORSPACE_CMYK) {
             $imagick->transformImageColorspace(Imagick::COLORSPACE_RGB);
         }
 
-        // Redimensionar
         $imagick->resizeImage(300, 0, Imagick::FILTER_LANCZOS, 1);
-
-        // Establecer formato WebP
         $imagick->setImageFormat('webp');
-        $imagick->setImageCompressionQuality(80); // puedes ajustar la calidad
+        $imagick->setImageCompressionQuality(80);
 
-        // Guardar imagen
-        $imagick->writeImage($path);
-        $imagick->clear();
-        $imagick->destroy();
+        try {
+            $imagick->writeImage($path);
+        } finally {
+            $imagick->clear();
+            $imagick->destroy();
+        }
 
         return 'images/' . $filename;
     } catch (Exception $e) {
@@ -95,19 +112,22 @@ function saveImageLocally($url, $country, $title) {
     }
 }
 
-
 function extractHiresFromFusionScript($crawler) {
     $script = $crawler->filter('script')->reduce(function($node) {
         return strpos($node->text(), 'Fusion.globalContent') !== false;
     });
+
     if ($script->count() === 0) return null;
+
     $content = $script->text();
-    if (preg_match('/Fusion\.globalContent\s*=\s*(\{.*?\});/s', $content, $m)) {
+    if (preg_match('/Fusion\\.globalContent\\s*=\\s*(\{.*?\});/s', $content, $m)) {
         $json = json_decode($m[1], true);
         return $json['data']['hires'] ?? null;
     }
+
     return null;
 }
+
 $total = 0;
 foreach ($config['sites'] as $country => $confs) {
     $total += count($confs);
@@ -115,88 +135,95 @@ foreach ($config['sites'] as $country => $confs) {
 echo "Total de sitios a scrapear: $total\n";
 
 $counter = 0;
-
 foreach ($config['sites'] as $country => $configs) {
     foreach ($configs as $conf) {
         $counter++;
         $percent = round($counter / $total * 100);
-        echo "\rProcesando sitio $counter de $total ($percent%) — {$conf['url']}   ";
+        echo "\n\rProcesando sitio $counter de $total ($percent%) — {$conf['url']}   \n";
 
-        try {
-           
-foreach ($config['sites'] as $country => $configs) {
-    foreach ($configs as $conf) {
         try {
             $crawler = $client->request('GET', $conf['url']);
             $urlImg = '';
             $alt = 'Portada';
             $fullUri = $conf['url'];
-            // ABC Color custom extractor
+
             if (!empty($conf['custom_extractor']) && $conf['custom_extractor'] === 'extractHiresFromFusionScript') {
                 $urlImg = extractHiresFromFusionScript($crawler);
                 if (!$urlImg) continue;
-            }
-            // Popular: href is the image directly
-            elseif (!empty($conf['followLinks']) && $conf['followLinks']['linkSelector'] === null && $conf['multiple'] === false) {
-                $link = $crawler->filter($conf['selector'])->attr('href') ?: '';
-                if (!$link) continue;
-                $urlImg = strpos($link, '//') === 0 ? 'https:' . $link : $link;
-            }
-            // Standard non-multiple
-            elseif (empty($conf['multiple'])) {
-                $img = $crawler->filter($conf['selector'])->attr('src') ?: '';
-                if (!$img) continue;
-                $urlImg = strpos($img, '//') === 0 ? 'https:' . $img : $img;
-                $alt = $crawler->filter($conf['selector'])->attr('alt') ?: $alt;
-            }
-            // Multiple case
-            else {
+            } elseif (!empty($conf['followLinks']) && $conf['followLinks']['linkSelector'] === null && $conf['multiple'] === false) {
+                $node = $crawler->filter($conf['selector']);
+                if ($node->count()) {
+                    $link = $node->attr('href') ?: '';
+                    $urlImg = strpos($link, '//') === 0 ? 'https:' . $link : $link;
+                } else {
+                    continue;
+                }
+            } elseif (empty($conf['multiple'])) {
+                $node = $crawler->filter($conf['selector']);
+                if ($node->count()) {
+                    $img = $node->attr('src') ?: '';
+                    $alt = $node->attr('alt') ?: $alt;
+                    $urlImg = strpos($img, '//') === 0 ? 'https:' . $img : $img;
+                } else {
+                    continue;
+                }
+            } else {
                 $crawler->filter($conf['selector'])->each(function($node) use($conf, $country, $pdo, $client) {
                     $base = new Uri($conf['url']);
+                    $urlImg = '';
+                    $linkPage = $conf['url'];
+                    $alt = 'Portada';
+
                     if (!empty($conf['followLinks'])) {
-                        $link = $node->filter($conf['followLinks']['linkSelector'])->attr('href') ?: '';
-                        $full = Uri::resolve($base, new Uri($link));
-                        $detail = $client->request('GET', (string)$full);
-                        $img = $detail->filter($conf['followLinks']['imageSelector'])->attr('src') ?: '';
-                        $alt = $node->filter('img')->attr('alt') ?: 'Portada';
-                        $urlImg = strpos($img, '//')===0?'https:'.$img:$img;
-                        $linkPage = (string)$full;
+                        $linkNode = $node->filter($conf['followLinks']['linkSelector']);
+                        if ($linkNode->count()) {
+                            $link = $linkNode->attr('href') ?: '';
+                            $full = Uri::resolve($base, new Uri($link));
+                            $detail = $client->request('GET', (string)$full);
+                            $imgNode = $detail->filter($conf['followLinks']['imageSelector']);
+                            if ($imgNode->count()) {
+                                $img = $imgNode->attr('src') ?: '';
+                                $alt = $node->filter('img')->attr('alt') ?: 'Portada';
+                                $urlImg = strpos($img, '//') === 0 ? 'https:' . $img : $img;
+                                $linkPage = (string)$full;
+                            }
+                        }
                     } else {
-                        $img = $node->filter('img')->attr('src') ?: '';
-                        $alt = $node->filter('img')->attr('alt') ?: 'Portada';
-                        $urlImg = strpos($img,'//')===0?'https:'.$img:$img;
-                        $linkPage = $conf['url'];
+                        $imgNode = $node->filter('img');
+                        if ($imgNode->count()) {
+                            $img = $imgNode->attr('src') ?: '';
+                            $alt = $imgNode->attr('alt') ?: 'Portada';
+                            $urlImg = strpos($img, '//') === 0 ? 'https:' . $img : $img;
+                        }
                     }
-                    $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
-                    $stmt->execute([':c'=>$country,':u'=>$urlImg]);
-                    if (!$stmt->fetchColumn()) {
-                        $local = saveImageLocally($urlImg,$country,$alt);
-                        if ($local) {
-                            $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link)VALUES(:c,:t,:i,:s,:l)");
-                            $ins->execute([':c'=>$country,':t'=>$alt,':i'=>$local,':s'=>$linkPage,':l'=>$urlImg]);
+
+                    if ($urlImg) {
+                        $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
+                        $stmt->execute([':c' => $country, ':u' => $urlImg]);
+                        if (!$stmt->fetchColumn()) {
+                            $local = saveImageLocally($urlImg, $country, $alt);
+                            if ($local) {
+                                $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link)VALUES(:c,:t,:i,:s,:l)");
+                                $ins->execute([':c' => $country, ':t' => $alt, ':i' => $local, ':s' => $linkPage, ':l' => $urlImg]);
+                            }
                         }
                     }
                 });
                 continue;
             }
-            // Insert single
-            $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
-            $stmt->execute([':c'=>$country,':u'=>$urlImg]);
-            if (!$stmt->fetchColumn()) {
-                $local = saveImageLocally($urlImg,$country,$alt);
-                if ($local) {
-                    $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link)VALUES(:c,:t,:i,:s,:l)");
-                    $ins->execute([':c'=>$country,':t'=>$alt,':i'=>$local,':s'=>$fullUri,':l'=>$urlImg]);
+
+            if ($urlImg) {
+                $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
+                $stmt->execute([':c' => $country, ':u' => $urlImg]);
+                if (!$stmt->fetchColumn()) {
+                    $local = saveImageLocally($urlImg, $country, $alt);
+                    if ($local) {
+                        $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link)VALUES(:c,:t,:i,:s,:l)");
+                        $ins->execute([':c' => $country, ':t' => $alt, ':i' => $local, ':s' => $fullUri, ':l' => $urlImg]);
+                    }
                 }
             }
         } catch (Exception $e) {
-            error_log("Error en {$conf['url']}: " . $e->getMessage());
-            continue;
-        }
-    }
-}
-
-        } catch (\Exception $e) {
             error_log("Error en {$conf['url']}: " . $e->getMessage());
             continue;
         }
