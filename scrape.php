@@ -3,6 +3,7 @@
 
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
+ini_set('error_log', __DIR__ . '/scrape_errors.log'); // Log a archivo
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 
 set_error_handler(function($severity, $message) {
@@ -14,6 +15,7 @@ set_error_handler(function($severity, $message) {
     return false;
 }, E_DEPRECATED);
 
+$start = microtime(true);
 echo "\nScraping iniciado a las " . date('H:i:s') . ".\n";
 
 // Validar autoload de Composer
@@ -41,7 +43,7 @@ $pdo = new PDO(
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
 );
 
-// Obtener la última fecha de scraping desde la base de datos
+// Obtener la última fecha de scraping
 $stmt = $pdo->prepare("SELECT value FROM configs WHERE name = 'last_scrape_date'");
 $stmt->execute();
 $lastScrapeDate = $stmt->fetchColumn() ?: '2000-01-01';
@@ -50,7 +52,6 @@ $hoy = date('Y-m-d');
 if ($lastScrapeDate !== $hoy) {
     echo "Limpiando imágenes y reiniciando base de datos (última fecha: $lastScrapeDate)...\n";
 
-    // Limpiar carpeta de imágenes
     $imagesDir = __DIR__ . '/images/';
     if (is_dir($imagesDir)) {
         $files = glob($imagesDir . '*');
@@ -61,16 +62,20 @@ if ($lastScrapeDate !== $hoy) {
         mkdir($imagesDir, 0777, true);
     }
 
-    // Limpiar tabla covers
     $pdo->exec('TRUNCATE TABLE covers');
 
-    // Actualizar la fecha de última ejecución
     $update = $pdo->prepare("REPLACE INTO configs (name, value) VALUES ('last_scrape_date', :fecha)");
     $update->execute([':fecha' => $hoy]);
 }
 
 $client = new Client();
 $guzzle = new GuzzleClient(['headers' => ['User-Agent' => 'Mozilla/5.0']]);
+
+function makeAbsoluteUrl($baseUrl, $relativeUrl) {
+    if (strpos($relativeUrl, '//') === 0) return 'https:' . $relativeUrl;
+    if (strpos($relativeUrl, 'http') === 0) return $relativeUrl;
+    return rtrim($baseUrl, '/') . '/' . ltrim($relativeUrl, '/');
+}
 
 function saveImageLocally($url, $country, $title) {
     global $guzzle;
@@ -112,6 +117,19 @@ function saveImageLocally($url, $country, $title) {
     }
 }
 
+function storeCover($country, $alt, $urlImg, $sourceLink) {
+    global $pdo;
+    $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
+    $stmt->execute([':c' => $country, ':u' => $urlImg]);
+    if (!$stmt->fetchColumn()) {
+        $local = saveImageLocally($urlImg, $country, $alt);
+        if ($local) {
+            $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link) VALUES(:c,:t,:i,:s,:l)");
+            $ins->execute([':c' => $country, ':t' => $alt, ':i' => $local, ':s' => $sourceLink, ':l' => $urlImg]);
+        }
+    }
+}
+
 function extractHiresFromFusionScript($crawler) {
     $script = $crawler->filter('script')->reduce(function($node) {
         return strpos($node->text(), 'Fusion.globalContent') !== false;
@@ -132,14 +150,14 @@ $total = 0;
 foreach ($config['sites'] as $country => $confs) {
     $total += count($confs);
 }
-echo "Total de sitios a scrapear: $total\n";
+echo "Total de sitios a scrapear: $total\n<br>";
 
 $counter = 0;
 foreach ($config['sites'] as $country => $configs) {
     foreach ($configs as $conf) {
         $counter++;
-        $percent = round($counter / $total * 100);
-        echo "\n\rProcesando sitio $counter de $total ($percent%) — {$conf['url']}   \n";
+        $pct = round($counter / $total * 100);
+        echo "Procesando [$counter/$total: $pct%] {$conf['url']}\n<br>";
 
         try {
             $crawler = $client->request('GET', $conf['url']);
@@ -151,10 +169,10 @@ foreach ($config['sites'] as $country => $configs) {
                 $urlImg = extractHiresFromFusionScript($crawler);
                 if (!$urlImg) continue;
             } elseif (!empty($conf['followLinks']) && $conf['followLinks']['linkSelector'] === null && $conf['multiple'] === false) {
-                $node = $crawler->filter($conf['selector']);
+               $node = $crawler->filter($conf['selector']);
                 if ($node->count()) {
-                    $link = $node->attr('href') ?: '';
-                    $urlImg = strpos($link, '//') === 0 ? 'https:' . $link : $link;
+                    $urlImg = $node->attr($conf['followLinks']['attribute']);
+                    $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
                 } else {
                     continue;
                 }
@@ -163,7 +181,7 @@ foreach ($config['sites'] as $country => $configs) {
                 if ($node->count()) {
                     $img = $node->attr('src') ?: '';
                     $alt = $node->attr('alt') ?: $alt;
-                    $urlImg = strpos($img, '//') === 0 ? 'https:' . $img : $img;
+                    $urlImg = makeAbsoluteUrl($conf['url'], $img);
                 } else {
                     continue;
                 }
@@ -180,12 +198,14 @@ foreach ($config['sites'] as $country => $configs) {
                             $link = $linkNode->attr('href') ?: '';
                             $full = Uri::resolve($base, new Uri($link));
                             $detail = $client->request('GET', (string)$full);
+                            $linkNodeImg = $detail->filter($conf['followLinks']['linkImgSelector']);
                             $imgNode = $detail->filter($conf['followLinks']['imageSelector']);
                             if ($imgNode->count()) {
                                 $img = $imgNode->attr('src') ?: '';
                                 $alt = $node->filter('img')->attr('alt') ?: 'Portada';
-                                $urlImg = strpos($img, '//') === 0 ? 'https:' . $img : $img;
-                                $linkPage = (string)$full;
+                                $urlImg = makeAbsoluteUrl((string)$full, $img);
+                                $linkNodeImgHref = $linkNodeImg->attr('href') ?: '';
+                                $linkPage = $linkNodeImgHref ?: (string)$full;
                             }
                         }
                     } else {
@@ -193,35 +213,19 @@ foreach ($config['sites'] as $country => $configs) {
                         if ($imgNode->count()) {
                             $img = $imgNode->attr('src') ?: '';
                             $alt = $imgNode->attr('alt') ?: 'Portada';
-                            $urlImg = strpos($img, '//') === 0 ? 'https:' . $img : $img;
+                            $urlImg = makeAbsoluteUrl($conf['url'], $img);
                         }
                     }
 
                     if ($urlImg) {
-                        $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
-                        $stmt->execute([':c' => $country, ':u' => $urlImg]);
-                        if (!$stmt->fetchColumn()) {
-                            $local = saveImageLocally($urlImg, $country, $alt);
-                            if ($local) {
-                                $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link)VALUES(:c,:t,:i,:s,:l)");
-                                $ins->execute([':c' => $country, ':t' => $alt, ':i' => $local, ':s' => $linkPage, ':l' => $urlImg]);
-                            }
-                        }
+                        storeCover($country, $alt, $urlImg, $linkPage);
                     }
                 });
                 continue;
             }
 
             if ($urlImg) {
-                $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
-                $stmt->execute([':c' => $country, ':u' => $urlImg]);
-                if (!$stmt->fetchColumn()) {
-                    $local = saveImageLocally($urlImg, $country, $alt);
-                    if ($local) {
-                        $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link)VALUES(:c,:t,:i,:s,:l)");
-                        $ins->execute([':c' => $country, ':t' => $alt, ':i' => $local, ':s' => $fullUri, ':l' => $urlImg]);
-                    }
-                }
+                storeCover($country, $alt, $urlImg, $fullUri);
             }
         } catch (Exception $e) {
             error_log("Error en {$conf['url']}: " . $e->getMessage());
@@ -230,4 +234,5 @@ foreach ($config['sites'] as $country => $configs) {
     }
 }
 
-echo "\nScraping finalizado a las " . date('H:i:s') . ".\n";
+$end = microtime(true);
+echo "\nScraping finalizado a las " . date('H:i:s') . ". Duración: " . round($end - $start, 2) . "s\n";

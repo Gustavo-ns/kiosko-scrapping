@@ -6,36 +6,23 @@ use Goutte\Client;
 
 $client = new Client();
 
-$url = 'https://www.abc.com.py/edicion-impresa/';
+$url = 'https://www.ultimahora.com/';
 $crawler = $client->request('GET', $url);
 
-// Buscar el script que contiene Fusion.globalContent
-$scriptNode = $crawler->filter('script')->reduce(function ($node) {
-    return strpos($node->text(), 'Fusion.globalContent') !== false;
-});
+// Buscar el botón que contiene el atributo data-src
+$buttonNode = $crawler->filter('bsp-page-promo-modal button[data-fancybox="fancybox-tapa"]');
 
-if ($scriptNode->count() === 0) {
-    die('No se encontró el script con Fusion.globalContent.');
+if ($buttonNode->count() === 0) {
+    die('No se encontró el botón con la tapa.');
 }
 
-// Obtener el contenido del script
-$scriptContent = $scriptNode->text();
+$hiresUrl = $buttonNode->attr('data-src');
 
-// Extraer el JSON desde Fusion.globalContent
-if (preg_match('/Fusion\.globalContent\s*=\s*(\{.*?\});/s', $scriptContent, $matches)) {
-    $jsonText = $matches[1];
-
-    $data = json_decode($jsonText, true);
-
-    if (isset($data['data']['hires'])) {
-        $hiresUrl = $data['data']['hires'];
-        echo "✅ URL HIRES: <a href=\"$hiresUrl\" target=\"_blank\">$hiresUrl</a><br>";
-        echo "<img src=\"$hiresUrl\" alt=\"Tapa ABC HIRES\" style=\"max-width:100%; height:auto;\">";
-    } else {
-        echo "No se encontró el campo 'hires' en el JSON.";
-    }
-} else {
-    echo "No se pudo extraer el JSON correctamente.";
+if (!$hiresUrl) {
+    die('No se encontró el atributo data-src.');
 }
+
+echo "✅ URL HIRES: <a href=\"$hiresUrl\" target=\"_blank\">$hiresUrl</a><br>";
+echo "<img src=\"$hiresUrl\" alt=\"Portada Última Hora\" style=\"max-width:100%; height:auto;\">";
 
 ?>

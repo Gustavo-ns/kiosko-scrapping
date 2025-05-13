@@ -20,6 +20,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -31,6 +32,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -39,8 +41,18 @@ return [
                 'selector' => '.portada a',
                 'multiple' => false,
                 'followLinks' => [
+                    'linkSelector' => null, // porque estás usando directamente el nodo 'a'
+                    'attribute' => 'href',  // 👈 aquí extraés el enlace de la imagen grande
+                ],
+            ],
+            [
+                'url' => 'https://www.ultimahora.com/',
+                'selector' => 'bsp-page-promo-modal button[data-fancybox="fancybox-tapa"]',
+                'multiple' => false,
+                'followLinks' => [
                     'linkSelector' => null,
-                    'imageSelector' => null, // no hace falta, ya que el href es la imagen
+                    'imageSelector' => null,
+                    'attribute' => 'data-src',
                 ],
             ],
             [
@@ -55,6 +67,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -66,6 +79,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -77,6 +91,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -88,6 +103,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -99,6 +115,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -110,6 +127,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -121,6 +139,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -132,6 +151,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -143,6 +163,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -154,6 +175,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -165,6 +187,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
@@ -176,6 +199,7 @@ return [
                 'multiple'     => true,
                 'followLinks'  => [
                     'linkSelector'  => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
                     'imageSelector' => '#portada',
                 ],
             ],
