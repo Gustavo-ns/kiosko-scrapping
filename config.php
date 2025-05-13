@@ -4,6 +4,15 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
+/* PRODUCTION */
+/* 
+        'host'    => 'localhost',
+        'name'    => 'u735862410_kiosko',
+        'user'    => 'u735862410_kiosko',
+        'pass'    => 'w1F#riF>Tj',
+        'charset' => 'utf8mb4',
+*/
+
 return [
     'db' => [
         'host'    => 'localhost',

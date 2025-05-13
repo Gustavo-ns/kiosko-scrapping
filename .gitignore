@@ -1,0 +1,11 @@
+# Composer
+/vendor/
+composer.lock
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# General
+/images/
+config.php
