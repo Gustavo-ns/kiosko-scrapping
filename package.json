@@ -1,0 +1,23 @@
+{
+  "name": "kiosko-scrapping",
+  "version": "1.0.0",
+  "description": "",
+  "main": "scripts.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gustavo-ns/kiosko-scrapping.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Gustavo-ns/kiosko-scrapping/issues"
+  },
+  "homepage": "https://github.com/Gustavo-ns/kiosko-scrapping#readme",
+  "dependencies": {
+    "puppeteer": "^24.8.2"
+  }
+}

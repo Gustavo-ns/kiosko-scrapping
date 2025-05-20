@@ -15,6 +15,8 @@ set_error_handler(function($severity, $message) {
     return false;
 }, E_DEPRECATED);
 
+ob_start();
+
 $start = microtime(true);
 echo "\nScraping iniciado a las " . date('H:i:s') . ".\n";
 
@@ -75,6 +77,10 @@ function makeAbsoluteUrl($baseUrl, $relativeUrl) {
     if (strpos($relativeUrl, '//') === 0) return 'https:' . $relativeUrl;
     if (strpos($relativeUrl, 'http') === 0) return $relativeUrl;
     return rtrim($baseUrl, '/') . '/' . ltrim($relativeUrl, '/');
+}
+
+function getFullSizeImageUrl($url) {
+    return preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $url);
 }
 
 function saveImageLocally($url, $country, $title) {
@@ -159,78 +165,181 @@ foreach ($config['sites'] as $country => $configs) {
         $pct = round($counter / $total * 100);
         echo "Procesando [$counter/$total: $pct%] {$conf['url']}\n<br>";
 
-        try {
-            $crawler = $client->request('GET', $conf['url']);
-            $urlImg = '';
-            $alt = 'Portada';
-            $fullUri = $conf['url'];
+      try {
+    $crawler = $client->request('GET', $conf['url']);
+    $urlImg = '';
+    $alt = 'Portada';
+    $fullUri = $conf['url'];
+    
+    // 🔸 Caso especial: usa extractor personalizado para URLs embebidas en JavaScript (ej. ABC Color)
+    if (!empty($conf['custom_extractor']) && $conf['custom_extractor'] === 'extractHiresFromFusionScript') {
+        $urlImg = extractHiresFromFusionScript($crawler);
+        if (!$urlImg) continue;
+            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
+            echo "<br>";
+            echo "PAGE {$conf['url']}";
+            echo "<br>";
 
-            if (!empty($conf['custom_extractor']) && $conf['custom_extractor'] === 'extractHiresFromFusionScript') {
-                $urlImg = extractHiresFromFusionScript($crawler);
-                if (!$urlImg) continue;
-            } elseif (!empty($conf['followLinks']) && $conf['followLinks']['linkSelector'] === null && $conf['multiple'] === false) {
-               $node = $crawler->filter($conf['selector']);
-                if ($node->count()) {
-                    $urlImg = $node->attr($conf['followLinks']['attribute']);
-                    $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
-                } else {
-                    continue;
-                }
-            } elseif (empty($conf['multiple'])) {
-                $node = $crawler->filter($conf['selector']);
-                if ($node->count()) {
-                    $img = $node->attr('src') ?: '';
-                    $alt = $node->attr('alt') ?: $alt;
-                    $urlImg = makeAbsoluteUrl($conf['url'], $img);
-                } else {
-                    continue;
-                }
-            } else {
-                $crawler->filter($conf['selector'])->each(function($node) use($conf, $country, $pdo, $client) {
-                    $base = new Uri($conf['url']);
-                    $urlImg = '';
-                    $linkPage = $conf['url'];
-                    $alt = 'Portada';
-
-                    if (!empty($conf['followLinks'])) {
-                        $linkNode = $node->filter($conf['followLinks']['linkSelector']);
-                        if ($linkNode->count()) {
-                            $link = $linkNode->attr('href') ?: '';
-                            $full = Uri::resolve($base, new Uri($link));
-                            $detail = $client->request('GET', (string)$full);
-                            $linkNodeImg = $detail->filter($conf['followLinks']['linkImgSelector']);
-                            $imgNode = $detail->filter($conf['followLinks']['imageSelector']);
-                            if ($imgNode->count()) {
-                                $img = $imgNode->attr('src') ?: '';
-                                $alt = $node->filter('img')->attr('alt') ?: 'Portada';
-                                $urlImg = makeAbsoluteUrl((string)$full, $img);
-                                $linkNodeImgHref = $linkNodeImg->attr('href') ?: '';
-                                $linkPage = $linkNodeImgHref ?: (string)$full;
-                            }
-                        }
-                    } else {
-                        $imgNode = $node->filter('img');
-                        if ($imgNode->count()) {
-                            $img = $imgNode->attr('src') ?: '';
-                            $alt = $imgNode->attr('alt') ?: 'Portada';
-                            $urlImg = makeAbsoluteUrl($conf['url'], $img);
-                        }
-                    }
-
-                    if ($urlImg) {
-                        storeCover($country, $alt, $urlImg, $linkPage);
-                    }
-                });
-                continue;
+            if (!empty($conf['transformImageUrl'])) {
+                echo "<br>";
+                    echo "Ajustando URL de La Razón 00: $urlImg\n";
+                echo "<br>";
+                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
             }
 
-            if ($urlImg) {
-                storeCover($country, $alt, $urlImg, $fullUri);
+    // 🔸 Caso: Extrae una imagen directamente desde un atributo personalizado (ej. data-src)
+    } elseif (!empty($conf['attribute'])) {
+        $node = $crawler->filter($conf['selector']);
+        if ($node->count()) {
+            $urlImg = $node->attr($conf['attribute']);
+            $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
+            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
+            echo "<br>";
+            echo "PAGE {$conf['url']}";
+            echo "<br>";
+
+            if (!empty($conf['transformImageUrl'])) {
+                echo "<br>";
+                    echo "Ajustando URL de La Razón 01: $urlImg\n";
+                echo "<br>";
+                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
             }
-        } catch (Exception $e) {
-            error_log("Error en {$conf['url']}: " . $e->getMessage());
+        } else {
             continue;
         }
+
+    // 🔸 Caso: Sigue un enlace directo sin necesidad de selector (ej. sitios con botón o link con href completo)
+    } elseif (!empty($conf['followLinks']) && $conf['followLinks']['linkSelector'] === null && $conf['multiple'] === false) {
+        $node = $crawler->filter($conf['selector']);
+        if ($node->count()) {
+            $urlImg = $node->attr($conf['followLinks']['attribute']);
+            $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
+            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
+            echo "<br>";
+            echo "PAGE {$conf['url']}";
+            echo "<br>";
+
+            if (!empty($conf['transformImageUrl'])) {
+                echo "<br>";
+                    echo "Ajustando URL de La Razón 02: $urlImg\n";
+                echo "<br>";
+                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
+            }
+        } else {
+            continue;
+        }
+
+    // 🔸 Caso: Página con una única portada (usa el atributo src del <img>)
+    } elseif (empty($conf['multiple'])) {
+        $node = $crawler->filter($conf['selector']);
+            if (!empty($conf['transformImageUrl'])) {
+                echo "<br>";
+                    echo "Ajustando URL de La Razón 02: " . $conf['selector'] . "\n";
+                echo "<br>";
+                echo "*--*----". $node->count() . "\n";
+                echo "<br>";
+            }
+          echo "<br>";
+            echo "PAGE0000000 {$conf['url']}";
+            echo "<br>";
+        if ($node->count()) {
+            $img = $node->attr('src') ?: '';
+            $alt = $node->attr('alt') ?: $alt;
+            $urlImg = makeAbsoluteUrl($conf['url'], $img);            
+            
+            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
+            echo "<br>";
+            echo "PAGE {$conf['url']}";
+            echo "<br>";
+
+            if (!empty($conf['transformImageUrl'])) {
+                echo "<br>";
+                    echo "Ajustando URL de La Razón 03: $urlImg\n";
+                echo "<br>";
+                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
+            }
+        } else {
+            continue;
+        }
+
+    // 🔸 Caso: Página con múltiples portadas, requiere recorrer cada .thcover
+    } else {
+        $crawler->filter($conf['selector'])->each(function($node) use($conf, $country, $pdo, $client) {
+            $base = new Uri($conf['url']);
+            $urlImg = '';
+            $linkPage = $conf['url'];
+            $alt = 'Portada';
+
+            // 🔸 Si hay followLinks definidos, hace scraping del enlace interno de detalle
+            if (!empty($conf['followLinks'])) {
+                $linkNode = $node->filter($conf['followLinks']['linkSelector']);
+                if ($linkNode->count()) {
+                    $link = $linkNode->attr('href') ?: '';
+                    $full = Uri::resolve($base, new Uri($link));
+
+                    // 🔸 Accede al detalle de portada y busca el selector de imagen ahí
+                    $detail = $client->request('GET', (string)$full);
+                    $linkNodeImg = $detail->filter($conf['followLinks']['linkImgSelector']);
+                    $imgNode = $detail->filter($conf['followLinks']['imageSelector']);
+                    if ($imgNode->count()) {
+                        $img = $imgNode->attr('src') ?: '';
+                        $alt = $node->filter('img')->attr('alt') ?: 'Portada';
+                        $urlImg = makeAbsoluteUrl((string)$full, $img);
+                        $linkNodeImgHref = $linkNodeImg->attr('href') ?: '';
+                        $linkPage = $linkNodeImgHref ?: (string)$full;
+            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
+            echo "<br>";
+            echo "PAGE {$conf['url']}";
+            echo "<br>";
+
+            if (!empty($conf['transformImageUrl'])) {
+                echo "<br>";
+                    echo "Ajustando URL de La Razón A00: $urlImg\n";
+                echo "<br>";
+                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
+            }
+                    }
+                }
+
+            // 🔸 Si no hay followLinks, simplemente busca el <img> directo en el bloque actual
+            } else {
+                $imgNode = $node->filter('img');
+                if ($imgNode->count()) {
+                    $img = $imgNode->attr('src') ?: '';
+                    $alt = $imgNode->attr('alt') ?: 'Portada';
+                    $urlImg = makeAbsoluteUrl($conf['url'], $img);
+            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
+            echo "<br>";
+            echo "PAGE {$conf['url']}";
+            echo "<br>";
+
+            if (!empty($conf['transformImageUrl'])) {
+                echo "<br>";
+                    echo "Ajustando URL de La Razón B00: $urlImg\n";
+                echo "<br>";
+                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
+            }
+                }
+            }
+
+            // 🔸 Guarda la portada si se encontró
+            if ($urlImg) {
+                storeCover($country, $alt, $urlImg, $linkPage);
+            }
+        });
+        continue;
+    }
+
+    // 🔸 Guarda la portada si se encontró (para casos simples)
+    if ($urlImg) {
+        storeCover($country, $alt, $urlImg, $fullUri);
+    }
+
+} catch (Exception $e) {
+    error_log("Error en {$conf['url']}: " . $e->getMessage());
+    continue;
+}
+
     }
 }
 

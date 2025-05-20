@@ -46,6 +46,11 @@ return [
                 ],
             ],
             [
+               'url' => 'https://es.kiosko.net/py/np/py_5dias.html',
+               'selector'     => '.frontPageImage img',  // apunta directo al <img>
+               'multiple'     => false,
+           ],
+            [
                 'url' => 'https://www.popular.com.py/',
                 'selector' => '.portada a',
                 'multiple' => false,
@@ -67,6 +72,12 @@ return [
             [
                 'url' => 'https://www.abc.com.py/edicion-impresa/',
                 'custom_extractor' => 'extractHiresFromFusionScript',
+            ],
+            [
+                'url' => 'https://www.extra.com.py/',
+                'selector' => 'button[data-fancybox="fancybox-ver-tapa-impresa"]',
+                'multiple' => false,
+                'attribute' => 'data-src', // <-- atributo que quieres extraer
             ],            
         ],
         'brasil' => [
@@ -176,6 +187,33 @@ return [
                     'imageSelector' => '#portada',
                 ],
             ],
+            [
+                'url' => 'https://eldeber.com.bo/',
+                'selector' => '#bloque_213048 .field__item img',
+                'multiple' => false,
+            ],
+            [
+                'url' => 'https://larazon.bo/',
+                'selector' => '#bloque5 .vc_single_image-img.entered',
+                'transformImageUrl' => true,
+            ],
+            [
+                'url' => 'https://www.lostiempos.com/',
+                'selector' => '.pane-portada-impresa .views-field-field-portada-imagen a',
+                'multiple' => false,
+                'attribute' => 'href', // Obtiene la URL de alta resolución
+                'imgSelectorInsideLink' => 'img', // Selector para extraer el src dentro del <a>
+                'transformImageUrl' => function ($url) {
+                    // Quitar el parámetro ?itok=... si existe
+                    return preg_replace('/\?itok=.*$/', '', $url);
+                }
+            ],
+            [
+                'url' => 'https://www.eldiario.net/portal/',
+                'selector' => '.tdm-inline-image-wrap a.td-modal-image',
+                'multiple' => false,
+                'attribute' => 'href', // El enlace apunta directamente a la imagen en alta resolución
+            ],                
         ],
         'mexico' => [
             [
