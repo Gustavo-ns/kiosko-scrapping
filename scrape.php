@@ -6,10 +6,12 @@ ini_set('log_errors', '1');
 ini_set('error_log', __DIR__ . '/scrape_errors.log'); // Log a archivo
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 
-set_error_handler(function($severity, $message) {
-    if ($severity === E_DEPRECATED
+set_error_handler(function ($severity, $message) {
+    if (
+        $severity === E_DEPRECATED
         && (strpos($message, 'strtolower(): Passing null') !== false
-            || strpos($message, 'Return type of Symfony\\Component\\DomCrawler\\Crawler::getIterator') !== false)) {
+            || strpos($message, 'Return type of Symfony\\Component\\DomCrawler\\Crawler::getIterator') !== false)
+    ) {
         return true;
     }
     return false;
@@ -71,19 +73,30 @@ if ($lastScrapeDate !== $hoy) {
 }
 
 $client = new Client();
-$guzzle = new GuzzleClient(['headers' => ['User-Agent' => 'Mozilla/5.0']]);
+$guzzle = new GuzzleClient([
+    'headers' => ['User-Agent' => 'Mozilla/5.0'],
+    'timeout' => 10,
+    'connect_timeout' => 5
+]);
 
-function makeAbsoluteUrl($baseUrl, $relativeUrl) {
+
+///////////////////////////////////////////////
+// Funciones auxiliares
+///////////////////////////////////////////////
+function makeAbsoluteUrl($baseUrl, $relativeUrl)
+{
     if (strpos($relativeUrl, '//') === 0) return 'https:' . $relativeUrl;
     if (strpos($relativeUrl, 'http') === 0) return $relativeUrl;
     return rtrim($baseUrl, '/') . '/' . ltrim($relativeUrl, '/');
 }
 
-function getFullSizeImageUrl($url) {
+function getFullSizeImageUrl($url)
+{
     return preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $url);
 }
 
-function saveImageLocally($url, $country, $title) {
+function saveImageLocally($url, $country, $title)
+{
     global $guzzle;
     if (empty($url)) {
         error_log("URL vacía en saveImageLocally para $title ($country)");
@@ -123,7 +136,8 @@ function saveImageLocally($url, $country, $title) {
     }
 }
 
-function storeCover($country, $alt, $urlImg, $sourceLink) {
+function storeCover($country, $alt, $urlImg, $sourceLink)
+{
     global $pdo;
     $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
     $stmt->execute([':c' => $country, ':u' => $urlImg]);
@@ -136,8 +150,9 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
     }
 }
 
-function extractHiresFromFusionScript($crawler) {
-    $script = $crawler->filter('script')->reduce(function($node) {
+function extractHiresFromFusionScript($crawler)
+{
+    $script = $crawler->filter('script')->reduce(function ($node) {
         return strpos($node->text(), 'Fusion.globalContent') !== false;
     });
 
@@ -152,6 +167,41 @@ function extractHiresFromFusionScript($crawler) {
     return null;
 }
 
+function extractWithXPath(string $url, string $xpath, string $attribute = 'href', int $timeout = 5): ?string {
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_CONNECTTIMEOUT => $timeout,
+        CURLOPT_TIMEOUT => $timeout + 2,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; scraper-bot)',
+        CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_SSL_VERIFYPEER => 0,
+        CURLOPT_RANGE => '0-65535',
+        CURLOPT_HTTPHEADER => ['Accept: text/html'],
+    ]);
+
+    $html = curl_exec($ch);
+    curl_close($ch);
+
+    if (!$html || strlen($html) < 100) return null;
+
+    libxml_use_internal_errors(true);
+    $dom = new DOMDocument();
+    if (!$dom->loadHTML($html)) return null;
+
+    $xpathObj = new DOMXPath($dom);
+    $nodes = $xpathObj->query($xpath);
+    if ($nodes && $nodes->length > 0) {
+        return $nodes->item(0)->getAttribute($attribute);
+    }
+
+    return null;
+}
+
+//////////////////////// Funciones auxiliares ////////////////////////
+
 $total = 0;
 foreach ($config['sites'] as $country => $confs) {
     $total += count($confs);
@@ -165,181 +215,125 @@ foreach ($config['sites'] as $country => $configs) {
         $pct = round($counter / $total * 100);
         echo "Procesando [$counter/$total: $pct%] {$conf['url']}\n<br>";
 
-      try {
-    $crawler = $client->request('GET', $conf['url']);
-    $urlImg = '';
-    $alt = 'Portada';
-    $fullUri = $conf['url'];
-    
-    // 🔸 Caso especial: usa extractor personalizado para URLs embebidas en JavaScript (ej. ABC Color)
-    if (!empty($conf['custom_extractor']) && $conf['custom_extractor'] === 'extractHiresFromFusionScript') {
-        $urlImg = extractHiresFromFusionScript($crawler);
-        if (!$urlImg) continue;
-            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
-            echo "<br>";
-            echo "PAGE {$conf['url']}";
-            echo "<br>";
-
-            if (!empty($conf['transformImageUrl'])) {
-                echo "<br>";
-                    echo "Ajustando URL de La Razón 00: $urlImg\n";
-                echo "<br>";
-                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
-            }
-
-    // 🔸 Caso: Extrae una imagen directamente desde un atributo personalizado (ej. data-src)
-    } elseif (!empty($conf['attribute'])) {
-        $node = $crawler->filter($conf['selector']);
-        if ($node->count()) {
-            $urlImg = $node->attr($conf['attribute']);
-            $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
-            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
-            echo "<br>";
-            echo "PAGE {$conf['url']}";
-            echo "<br>";
-
-            if (!empty($conf['transformImageUrl'])) {
-                echo "<br>";
-                    echo "Ajustando URL de La Razón 01: $urlImg\n";
-                echo "<br>";
-                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
-            }
-        } else {
-            continue;
-        }
-
-    // 🔸 Caso: Sigue un enlace directo sin necesidad de selector (ej. sitios con botón o link con href completo)
-    } elseif (!empty($conf['followLinks']) && $conf['followLinks']['linkSelector'] === null && $conf['multiple'] === false) {
-        $node = $crawler->filter($conf['selector']);
-        if ($node->count()) {
-            $urlImg = $node->attr($conf['followLinks']['attribute']);
-            $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
-            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
-            echo "<br>";
-            echo "PAGE {$conf['url']}";
-            echo "<br>";
-
-            if (!empty($conf['transformImageUrl'])) {
-                echo "<br>";
-                    echo "Ajustando URL de La Razón 02: $urlImg\n";
-                echo "<br>";
-                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
-            }
-        } else {
-            continue;
-        }
-
-    // 🔸 Caso: Página con una única portada (usa el atributo src del <img>)
-    } elseif (empty($conf['multiple'])) {
-        $node = $crawler->filter($conf['selector']);
-            if (!empty($conf['transformImageUrl'])) {
-                echo "<br>";
-                    echo "Ajustando URL de La Razón 02: " . $conf['selector'] . "\n";
-                echo "<br>";
-                echo "*--*----". $node->count() . "\n";
-                echo "<br>";
-            }
-          echo "<br>";
-            echo "PAGE0000000 {$conf['url']}";
-            echo "<br>";
-        if ($node->count()) {
-            $img = $node->attr('src') ?: '';
-            $alt = $node->attr('alt') ?: $alt;
-            $urlImg = makeAbsoluteUrl($conf['url'], $img);            
-            
-            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
-            echo "<br>";
-            echo "PAGE {$conf['url']}";
-            echo "<br>";
-
-            if (!empty($conf['transformImageUrl'])) {
-                echo "<br>";
-                    echo "Ajustando URL de La Razón 03: $urlImg\n";
-                echo "<br>";
-                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
-            }
-        } else {
-            continue;
-        }
-
-    // 🔸 Caso: Página con múltiples portadas, requiere recorrer cada .thcover
-    } else {
-        $crawler->filter($conf['selector'])->each(function($node) use($conf, $country, $pdo, $client) {
-            $base = new Uri($conf['url']);
+        try {
+            $crawler = $client->request('GET', $conf['url']);
             $urlImg = '';
-            $linkPage = $conf['url'];
             $alt = 'Portada';
+            $fullUri = $conf['url'];
 
-            // 🔸 Si hay followLinks definidos, hace scraping del enlace interno de detalle
-            if (!empty($conf['followLinks'])) {
-                $linkNode = $node->filter($conf['followLinks']['linkSelector']);
-                if ($linkNode->count()) {
-                    $link = $linkNode->attr('href') ?: '';
-                    $full = Uri::resolve($base, new Uri($link));
-
-                    // 🔸 Accede al detalle de portada y busca el selector de imagen ahí
-                    $detail = $client->request('GET', (string)$full);
-                    $linkNodeImg = $detail->filter($conf['followLinks']['linkImgSelector']);
-                    $imgNode = $detail->filter($conf['followLinks']['imageSelector']);
-                    if ($imgNode->count()) {
-                        $img = $imgNode->attr('src') ?: '';
-                        $alt = $node->filter('img')->attr('alt') ?: 'Portada';
-                        $urlImg = makeAbsoluteUrl((string)$full, $img);
-                        $linkNodeImgHref = $linkNodeImg->attr('href') ?: '';
-                        $linkPage = $linkNodeImgHref ?: (string)$full;
-            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
-            echo "<br>";
-            echo "PAGE {$conf['url']}";
-            echo "<br>";
-
-            if (!empty($conf['transformImageUrl'])) {
-                echo "<br>";
-                    echo "Ajustando URL de La Razón A00: $urlImg\n";
-                echo "<br>";
-                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
-            }
-                    }
+            // 🔸 Caso especial: extractores personalizados
+            if (!empty($conf['custom_extractor'])) {
+                switch ($conf['custom_extractor']) {
+                    case 'extractWithXPath':
+                        $xpath = $conf['xpath'] ?? '//img';
+                        $attr = $conf['attribute'] ?? 'src';
+                        $urlImg = extractWithXPath($conf['url'], $xpath, $attr);
+                        if ($urlImg) {
+                            $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
+                        }
+                        break;
+                    case 'extractHiresFromFusionScript':
+                        $hiresUrl = extractHiresFromFusionScript($crawler);
+                        if ($hiresUrl) {
+                            $urlImg = makeAbsoluteUrl($conf['url'], $hiresUrl);
+                        }
+                        break;
+                }
+                if (!$urlImg) continue;
+                storeCover($country, $alt, $urlImg, $fullUri);
+                continue;
+                // 🔸 Caso: Extrae una imagen directamente desde un atributo personalizado (ej. data-src)
+            } elseif (!empty($conf['attribute'])) {
+                $node = $crawler->filter($conf['selector']);
+                if ($node->count()) {
+                    $urlImg = $node->attr($conf['attribute']);
+                    $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
+                } else {
+                    continue;
                 }
 
-            // 🔸 Si no hay followLinks, simplemente busca el <img> directo en el bloque actual
-            } else {
-                $imgNode = $node->filter('img');
-                if ($imgNode->count()) {
-                    $img = $imgNode->attr('src') ?: '';
-                    $alt = $imgNode->attr('alt') ?: 'Portada';
+                // 🔸 Caso: Sigue un enlace directo sin necesidad de selector (ej. sitios con botón o link con href completo)
+            } elseif (!empty($conf['followLinks']) && $conf['followLinks']['linkSelector'] === null && $conf['multiple'] === false) {
+                $node = $crawler->filter($conf['selector']);
+                if ($node->count()) {
+                    $urlImg = $node->attr($conf['followLinks']['attribute']);
+                    $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
+                } else {
+                    continue;
+                }
+
+                // 🔸 Caso: Página con una única portada (usa el atributo src del <img>)
+            } elseif (empty($conf['multiple'])) {
+                $node = $crawler->filter($conf['selector']);
+                if (!empty($conf['transformImageUrl'])) {
+                    echo "<br>";
+                    echo $conf['url'] . "\n";
+                    echo "<br>";
+                    echo "<br>";
+                    //ACA eldeber
+                }
+                if ($node->count()) {
+                    $img = $node->attr('src') ?: '';
+                    $alt = $node->attr('alt') ?: $alt;
                     $urlImg = makeAbsoluteUrl($conf['url'], $img);
-            // 🔧 Ajuste: si es La Razón, quitar sufijo de tamaño para alta resolución
-            echo "<br>";
-            echo "PAGE {$conf['url']}";
-            echo "<br>";
-
-            if (!empty($conf['transformImageUrl'])) {
-                echo "<br>";
-                    echo "Ajustando URL de La Razón B00: $urlImg\n";
-                echo "<br>";
-                $urlImg = preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $urlImg);
-            }
+                } else {
+                    continue;
                 }
+
+                // 🔸 Caso: Página con múltiples portadas, requiere recorrer cada .thcover
+            } else {
+                $crawler->filter($conf['selector'])->each(function ($node) use ($conf, $country, $pdo, $client) {
+                    $base = new Uri($conf['url']);
+                    $urlImg = '';
+                    $linkPage = $conf['url'];
+                    $alt = 'Portada';
+
+                    // 🔸 Si hay followLinks definidos, hace scraping del enlace interno de detalle
+                    if (!empty($conf['followLinks'])) {
+                        $linkNode = $node->filter($conf['followLinks']['linkSelector']);
+                        if ($linkNode->count()) {
+                            $link = $linkNode->attr('href') ?: '';
+                            $full = Uri::resolve($base, new Uri($link));
+
+                            // 🔸 Accede al detalle de portada y busca el selector de imagen ahí
+                            $detail = $client->request('GET', (string)$full);
+                            $linkNodeImg = $detail->filter($conf['followLinks']['linkImgSelector']);
+                            $imgNode = $detail->filter($conf['followLinks']['imageSelector']);
+                            if ($imgNode->count()) {
+                                $img = $imgNode->attr('src') ?: '';
+                                $alt = $node->filter('img')->attr('alt') ?: 'Portada';
+                                $urlImg = makeAbsoluteUrl((string)$full, $img);
+                                $linkNodeImgHref = $linkNodeImg->attr('href') ?: '';
+                                $linkPage = $linkNodeImgHref ?: (string)$full;
+                            }
+                        }
+
+                        // 🔸 Si no hay followLinks, simplemente busca el <img> directo en el bloque actual
+                    } else {
+                        $imgNode = $node->filter('img');
+                        if ($imgNode->count()) {
+                            $img = $imgNode->attr('src') ?: '';
+                            $alt = $imgNode->attr('alt') ?: 'Portada';
+                            $urlImg = makeAbsoluteUrl($conf['url'], $img);
+                        }
+                    }
+
+                    // 🔸 Guarda la portada si se encontró
+                    if ($urlImg) {
+                        storeCover($country, $alt, $urlImg, $linkPage);
+                    }
+                });
+                continue;
             }
 
-            // 🔸 Guarda la portada si se encontró
+            // 🔸 Guarda la portada si se encontró (para casos simples)
             if ($urlImg) {
-                storeCover($country, $alt, $urlImg, $linkPage);
+                storeCover($country, $alt, $urlImg, $fullUri);
             }
-        });
-        continue;
-    }
-
-    // 🔸 Guarda la portada si se encontró (para casos simples)
-    if ($urlImg) {
-        storeCover($country, $alt, $urlImg, $fullUri);
-    }
-
-} catch (Exception $e) {
-    error_log("Error en {$conf['url']}: " . $e->getMessage());
-    continue;
-}
-
+        } catch (Exception $e) {
+            error_log("Error en {$conf['url']}: " . $e->getMessage());
+            continue;
+        }
     }
 }
 

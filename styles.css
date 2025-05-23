@@ -89,7 +89,9 @@ body {
 .card {
   position: relative;
   overflow: hidden;
-  height: 500px;
+  /*
+  min-height: 500px;
+  */
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -129,10 +131,13 @@ body {
 
 .card img {
   width: 100%;
-  height: 350px;
+  height: auto;
   display: block;
+  /*
+  height: 350px;
   object-fit: cover;
   object-position: top; /* <-- Esto asegura que se vea desde arriba */
+  */
   background-color: #d9d9d9;
   transition: opacity 0.3s ease;
   opacity: 0.5;
@@ -216,6 +221,21 @@ body {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+@keyframes zoomIn {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal.show img {
+  animation: zoomIn 0.4s ease;
+}
+
 
 
 .info {

@@ -11,8 +11,8 @@ error_reporting(E_ALL);
         'user'    => 'u735862410_kiosko',
         'pass'    => 'w1F#riF>Tj',
         'charset' => 'utf8mb4',
+Pass para VPS => w1F#riF>Tjw1F#riF>Tj
 */
-
 return [
     'db' => [
         'host'    => 'localhost',
@@ -51,6 +51,34 @@ return [
                'multiple'     => false,
            ],
             [
+               'url' => 'https://www.adndigital.com.py/',
+               'selector'     => '#text-html-widget-3 img',  // apunta directo al <img>
+               'multiple'     => false,
+           ],
+            [
+               'url' => 'https://www.cronica.com.py/',
+               'selector'     => '#su_slider_682c0088f14d9 img',  // apunta directo al <img>
+               'multiple'     => false,
+           ],
+            [
+               'url' => 'https://independiente.com.py/19-05-25/',
+               'selector'     => '#attachment_144509 a',
+               'multiple'     => false,
+                'followLinks' => [
+                    'linkSelector' => null, // porque estás usando directamente el nodo 'a'
+                    'attribute' => 'href',  // 👈 aquí extraés el enlace de la imagen grande
+                ],
+           ],           
+            [
+                'url' => 'https://independiente.com.py',
+                'selector'     => '.viral_news_category_block-6',
+                'multiple'     => true,
+                'followLinks'  => [
+                    'linkSelector'  => '#attachment_144509 a',
+                    'attribute' => 'href',
+                ],
+            ],
+            [
                 'url' => 'https://www.popular.com.py/',
                 'selector' => '.portada a',
                 'multiple' => false,
@@ -78,7 +106,12 @@ return [
                 'selector' => 'button[data-fancybox="fancybox-ver-tapa-impresa"]',
                 'multiple' => false,
                 'attribute' => 'data-src', // <-- atributo que quieres extraer
-            ],            
+            ],
+            [
+                'url' => 'https://www.ip.gov.py/ip/',
+                'use_xpath' => true,
+                'xpath' => '//a[contains(@class,"tdm-image-box")]/@href',
+           ],
         ],
         'brasil' => [
             [
@@ -115,6 +148,11 @@ return [
                     'imageSelector' => '#portada',
                 ],
             ],
+            [
+               'url' => 'https://www.elobservador.com.uy/',
+               'selector'     => 'h3 + .news-article__figure.figure img.img-fluid',  // apunta directo al <img>
+               'multiple'     => false,
+           ],
         ],
         'chile' => [
             [

@@ -21,3 +21,5 @@ const puppeteer = require('puppeteer');
 
   await browser.close();
 })();
+
+console.log(JSON.stringify({ img }));
