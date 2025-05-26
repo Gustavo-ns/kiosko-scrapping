@@ -1,0 +1,32 @@
+# Permitir acceso a imágenes
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Permitir acceso directo a imágenes
+    RewriteCond %{REQUEST_URI} \.(jpg|jpeg|png|gif|webp)$ [NC]
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+</IfModule>
+
+# Configuración de caché para imágenes
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+    Header set Cache-Control "max-age=31536000, public"
+    Header set Access-Control-Allow-Origin "*"
+</FilesMatch>
+
+# Configuración de seguridad básica
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
+
+# Permitir acceso a imágenes
+<Files ~ "\.(jpg|jpeg|png|gif|webp)$">
+    Order Allow,Deny
+    Allow from all
+</Files>
+
+# Denegar acceso a otros tipos de archivos
+<FilesMatch "^(?!(.*\.(jpg|jpeg|png|gif|webp)$))">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch> 

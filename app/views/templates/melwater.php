@@ -1,9 +1,9 @@
 <?php
-require_once 'cache_config.php';
-require_once 'download_image.php';
+require_once __DIR__ . '/../../../app/config/cache_config.php';
+require_once __DIR__ . '/../../../app/services/ImageService.php';
 
 // Cargar configuración de la base de datos
-$cfg = require 'config.php';
+$cfg = require __DIR__ . '/../../../app/config/config.php';
 
 // Función para obtener el hash del contenido actual
 function getContentHash($pdo) {
@@ -37,7 +37,7 @@ try {
         exit;
     }
 
-    // Obtener los datos
+    // Obtener los datos de Meltwater
     $stmt = $pdo->query("
         SELECT 
             med.*,
@@ -45,20 +45,48 @@ try {
             med.twitter_screen_name,
             med.dereach,
             med.grupo,
-            med.pais as pais_medio
+            med.pais as pais_medio,
+            'meltwater' as source_type
         FROM pk_melwater pk
         LEFT JOIN medios med ON pk.external_id = med.twitter_id
         ORDER BY med.grupo, med.pais, med.dereach DESC
     ");
-    $documents = $stmt->fetchAll();
+    $meltwater_docs = $stmt->fetchAll();
 
-    // Obtener grupos únicos para el selector
+    // Obtener los datos de covers
+    $stmt = $pdo->query("
+        SELECT 
+            c.*,
+            'cover' as source_type
+        FROM covers c 
+        ORDER BY c.scraped_at DESC
+    ");
+    $covers = $stmt->fetchAll();
+
+    // Combinar ambos conjuntos de datos
+    $documents = array_merge($meltwater_docs, $covers);
+
+    // Ordenar por fecha de publicación/scraping
+    usort($documents, function($a, $b) {
+        $date_a = isset($a['published_date']) ? $a['published_date'] : $a['scraped_at'];
+        $date_b = isset($b['published_date']) ? $b['published_date'] : $b['scraped_at'];
+        return strtotime($date_b) - strtotime($date_a);
+    });
+
+    // Obtener grupos únicos para el selector (solo de Meltwater)
     $grupos = $pdo->query("
         SELECT DISTINCT med.grupo 
         FROM pk_melwater pk 
         LEFT JOIN medios med ON pk.external_id = med.twitter_id 
         WHERE med.grupo IS NOT NULL 
         ORDER BY med.grupo
+    ")->fetchAll(PDO::FETCH_COLUMN);
+
+    // Obtener países únicos de covers
+    $paises = $pdo->query("
+        SELECT DISTINCT country 
+        FROM covers 
+        ORDER BY country
     ")->fetchAll(PDO::FETCH_COLUMN);
 
 } catch (PDOException $e) {
@@ -78,7 +106,7 @@ ob_start();
     <meta name="keywords" content="portadas, periódicos, América Latina, Caribe, noticias, actualidad, prensa, medios de comunicación">
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#ffffff">
-    <title>Portadas de Periódicos</title>
+    <title>Portadas de Periódicos - Meltwater</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -87,7 +115,7 @@ ob_start();
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     </noscript>
     
-    <link rel="stylesheet" href="styles.css?v=<?= ASSETS_VERSION ?>" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/public/assets/css/styles.css?v=<?= ASSETS_VERSION ?>" media="print" onload="this.media='all'">
     <style>
         /* Critical styles only */
         body {
@@ -104,6 +132,50 @@ ob_start();
             position: sticky;
             top: 0;
             z-index: 100;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-group select {
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #333;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .filter-group label {
+            font-size: 1rem;
+            white-space: nowrap;
+        }
+
+        #refreshBtn {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            border: none;
+            background: #444;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+
+        #refreshBtn:hover {
+            background: #555;
         }
 
         .gallery {
@@ -120,6 +192,11 @@ ob_start();
             height: 100%;
             display: flex;
             flex-direction: column;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
         }
 
         .image-container {
@@ -182,38 +259,95 @@ ob_start();
 <body>
     <div class="container">
         <div class="controls">
-            <label for="grupoSelect">Selecciona un grupo:</label>
-            <select id="grupoSelect">
-                <option value="">-- Todos los grupos --</option>
-                <?php foreach ($grupos as $grupo): ?>
-                    <option value="<?= htmlspecialchars($grupo) ?>"><?= htmlspecialchars($grupo) ?></option>
-                <?php endforeach; ?>
-            </select>
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="contentTypeSelect">Tipo de contenido:</label>
+                    <select id="contentTypeSelect">
+                        <option value="">Todos los tipos</option>
+                        <option value="meltwater">Meltwater</option>
+                        <option value="cover">Portadas</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="grupoSelect">Grupo:</label>
+                    <select id="grupoSelect">
+                        <option value="">Todos los grupos</option>
+                        <?php foreach ($grupos as $grupo): ?>
+                            <option value="<?= htmlspecialchars($grupo) ?>"><?= htmlspecialchars($grupo) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="countrySelect">País:</label>
+                    <select id="countrySelect">
+                        <option value="">Todos los países</option>
+                        <?php foreach ($paises as $pais): ?>
+                            <option value="<?= htmlspecialchars($pais) ?>"><?= htmlspecialchars($pais) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
             <button id="refreshBtn">🔄 Actualizar</button>
         </div>
 
         <div id="gallery" class="gallery">
             <?php foreach ($documents as $doc): 
-                $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
-                $url_destino = isset($doc['url_destino']) ? htmlspecialchars($doc['url_destino']) : '#';
-                $content_image = isset($doc['content_image']) ? htmlspecialchars($doc['content_image']) : '';
-                $author_name = isset($doc['author_name']) ? htmlspecialchars($doc['author_name']) : 'Sin nombre';
-                $external_id = isset($doc['external_id']) ? htmlspecialchars($doc['external_id']) : '';
-                $published_date = isset($doc['published_date']) ? htmlspecialchars($doc['published_date']) : '';
-                $source_id = isset($doc['source_id']) ? htmlspecialchars($doc['source_id']) : '';
-                $social_network = isset($doc['social_network']) ? htmlspecialchars($doc['social_network']) : '';
-                $input_names = isset($doc['input_names']) ? htmlspecialchars($doc['input_names']) : '';
-                $country_name = isset($doc['country_name']) ? htmlspecialchars($doc['country_name']) : '';
-                $twitter_screen_name = isset($doc['twitter_screen_name']) ? htmlspecialchars($doc['twitter_screen_name']) : '';
-                $dereach = isset($doc['dereach']) ? $doc['dereach'] : 0;
-
-                // Procesar imagen
-                $image_paths = '';
-                if ($content_image) {
-                    $image_paths = downloadImage($content_image, $external_id);
+                // Variables comunes
+                $source_type = $doc['source_type'];
+                
+                if ($source_type === 'meltwater') {
+                    // Datos de Meltwater
+                    $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
+                    $url_destino = isset($doc['url_destino']) ? htmlspecialchars($doc['url_destino']) : '#';
+                    $content_image = isset($doc['content_image']) ? htmlspecialchars($doc['content_image']) : '';
+                    $author_name = isset($doc['author_name']) ? htmlspecialchars($doc['author_name']) : 'Sin nombre';
+                    $external_id = isset($doc['external_id']) ? htmlspecialchars($doc['external_id']) : '';
+                    $published_date = isset($doc['published_date']) ? htmlspecialchars($doc['published_date']) : '';
+                    $source_id = isset($doc['source_id']) ? htmlspecialchars($doc['source_id']) : '';
+                    $social_network = isset($doc['social_network']) ? htmlspecialchars($doc['social_network']) : '';
+                    $input_names = isset($doc['input_names']) ? htmlspecialchars($doc['input_names']) : '';
+                    $country_name = isset($doc['country_name']) ? htmlspecialchars($doc['country_name']) : '';
+                    $twitter_screen_name = isset($doc['twitter_screen_name']) ? htmlspecialchars($doc['twitter_screen_name']) : '';
+                    $dereach = isset($doc['dereach']) ? $doc['dereach'] : 0;
+                    
+                    // Procesar imagen usando ImageService
+                    $image_paths = '';
+                    if ($content_image) {
+                        $image_paths = $imageService->downloadImage($content_image, $external_id);
+                    }
+                    $display_image = $image_paths ? $image_paths['thumbnail'] : $content_image;
+                    $zoom_image = $image_paths ? $image_paths['original'] : $content_image;
+                } else {
+                    // Datos de covers
+                    $grupo = '';
+                    $url_destino = isset($doc['source']) ? htmlspecialchars($doc['source']) : '#';
+                    $content_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
+                    $author_name = isset($doc['title']) ? htmlspecialchars($doc['title']) : 'Sin nombre';
+                    $external_id = '';
+                    $published_date = isset($doc['scraped_at']) ? htmlspecialchars($doc['scraped_at']) : '';
+                    $source_id = '';
+                    $social_network = '';
+                    $input_names = '';
+                    $country_name = isset($doc['country']) ? htmlspecialchars($doc['country']) : '';
+                    $twitter_screen_name = '';
+                    $dereach = 0;
+                    
+                    $display_image = $content_image;
+                    $zoom_image = isset($doc['original_link']) ? $doc['original_link'] : $content_image;
                 }
+
+                // Determinar si es una de las primeras 6 imágenes (above the fold)
+                static $image_count = 0;
+                $image_count++;
+                $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
             ?>
-                <div class="card" data-grupo="<?= $grupo ?>" 
+                <div class="card" 
+                     data-source-type="<?= $source_type ?>"
+                     data-grupo="<?= $grupo ?>" 
+                     data-country="<?= $country_name ?>"
                      data-external-id="<?= $external_id ?>"
                      data-published-date="<?= $published_date ?>"
                      data-source-id="<?= $source_id ?>"
@@ -221,14 +355,7 @@ ob_start();
                      data-input-names="<?= $input_names ?>">
                     <a href="<?= $url_destino ?>" target="_blank">
                         <div class="image-container">
-                            <?php if ($content_image): 
-                                $display_image = $image_paths ? $image_paths['thumbnail'] : $content_image;
-                                $zoom_image = $image_paths ? $image_paths['original'] : $content_image;
-                                // Determinar si es una de las primeras 6 imágenes (above the fold)
-                                static $image_count = 0;
-                                $image_count++;
-                                $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
-                            ?>
+                            <?php if ($content_image): ?>
                                 <img loading="<?= $loading_strategy ?>" 
                                      src="<?= $display_image ?>" 
                                      alt="<?= $author_name ?>" 
@@ -245,7 +372,7 @@ ob_start();
                     </a>
                     <div class="info">
                         <h3><?= $author_name ?></h3>
-                        <?php if ($twitter_screen_name): ?>
+                        <?php if ($source_type === 'meltwater' && $twitter_screen_name): ?>
                             <small class="medio-info">
                                 @<?= $twitter_screen_name ?>
                                 <?php if ($grupo): ?> | Grupo: <?= $grupo ?><?php endif; ?>
@@ -262,7 +389,9 @@ ob_start();
                         <?php endif; ?>
 
                         <div class="additional-info">
-                            <small>ID: <?= $external_id ?></small><br>
+                            <?php if ($external_id): ?>
+                                <small>ID: <?= $external_id ?></small><br>
+                            <?php endif; ?>
                             <?php if ($social_network): ?>
                                 <small>Red social: <?= $social_network ?></small><br>
                             <?php endif; ?>
@@ -298,6 +427,8 @@ ob_start();
             const modalLoader = document.getElementById('modalLoader');
             const closeModal = imageModal.querySelector('.close');
             const grupoSelect = document.getElementById('grupoSelect');
+            const countrySelect = document.getElementById('countrySelect');
+            const contentTypeSelect = document.getElementById('contentTypeSelect');
             const gallery = document.getElementById('gallery');
 
             function showModal(imageUrl) {
@@ -337,37 +468,62 @@ ob_start();
 
             const params = new URLSearchParams(window.location.search);
             const initialGrupo = params.get('grupo') || '';
-            grupoSelect.value = initialGrupo;
+            const initialCountry = params.get('country') || '';
+            const initialType = params.get('type') || '';
 
-            function updateURL(grupo) {
+            grupoSelect.value = initialGrupo;
+            countrySelect.value = initialCountry;
+            contentTypeSelect.value = initialType;
+
+            function updateURL() {
                 const url = new URL(window.location);
-                if (grupo) {
-                    url.searchParams.set('grupo', grupo);
-                } else {
-                    url.searchParams.delete('grupo');
-                }
+                const grupo = grupoSelect.value;
+                const country = countrySelect.value;
+                const type = contentTypeSelect.value;
+
+                if (grupo) url.searchParams.set('grupo', grupo);
+                else url.searchParams.delete('grupo');
+
+                if (country) url.searchParams.set('country', country);
+                else url.searchParams.delete('country');
+
+                if (type) url.searchParams.set('type', type);
+                else url.searchParams.delete('type');
+
                 history.replaceState(null, '', url);
             }
 
-            function filterByGrupo() {
+            function filterCards() {
                 const selectedGrupo = grupoSelect.value;
-                updateURL(selectedGrupo);
+                const selectedCountry = countrySelect.value;
+                const selectedType = contentTypeSelect.value;
                 
                 const cards = gallery.querySelectorAll('.card');
                 cards.forEach(card => {
                     const cardGrupo = card.dataset.grupo;
-                    if (!selectedGrupo || cardGrupo === selectedGrupo) {
+                    const cardCountry = card.dataset.country;
+                    const cardType = card.dataset.sourceType;
+
+                    const matchesGrupo = !selectedGrupo || cardGrupo === selectedGrupo;
+                    const matchesCountry = !selectedCountry || cardCountry === selectedCountry;
+                    const matchesType = !selectedType || cardType === selectedType;
+
+                    if (matchesGrupo && matchesCountry && matchesType) {
                         card.style.display = '';
                     } else {
                         card.style.display = 'none';
                     }
                 });
+
+                updateURL();
             }
 
-            grupoSelect.addEventListener('change', filterByGrupo);
+            grupoSelect.addEventListener('change', filterCards);
+            countrySelect.addEventListener('change', filterCards);
+            contentTypeSelect.addEventListener('change', filterCards);
             
-            if (initialGrupo) {
-                filterByGrupo();
+            if (initialGrupo || initialCountry || initialType) {
+                filterCards();
             }
 
             const refreshBtn = document.getElementById('refreshBtn');
@@ -376,17 +532,31 @@ ob_start();
                 refreshBtn.textContent = '🔄 Actualizando...';
                 
                 try {
-                    const response = await fetch('update_melwater.php');
+                    const response = await fetch('/?action=update');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
                     const data = await response.json();
                     
                     if (data.success) {
                         location.reload();
                     } else {
-                        alert('Error al actualizar: ' + data.message);
+                        console.error('Error de actualización:', data);
+                        alert(`Error al actualizar: ${data.message || 'Error desconocido'}`);
                     }
                 } catch (error) {
-                    console.error('Error:', error);
-                    alert('Error al actualizar los datos');
+                    console.error('Error detallado:', error);
+                    let errorMessage = 'Error al actualizar los datos: ';
+                    
+                    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                        errorMessage += 'No se pudo conectar al servidor. Por favor, verifica tu conexión.';
+                    } else if (error.message.includes('HTTP error!')) {
+                        errorMessage += `Error de servidor (${error.message})`;
+                    } else {
+                        errorMessage += error.message || 'Error desconocido';
+                    }
+                    
+                    alert(errorMessage);
                 } finally {
                     refreshBtn.disabled = false;
                     refreshBtn.textContent = '🔄 Actualizar';

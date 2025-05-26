@@ -1,6 +1,8 @@
 <?php
-// Versión de los assets para control de caché
-define('ASSETS_VERSION', '1.0.0');
+// Configuración de caché y versión de assets
+if (!defined('ASSETS_VERSION')) {
+    define('ASSETS_VERSION', '1.0.0');
+}
 
 // Tiempos de caché en segundos
 define('CACHE_TIME_IMAGES', 604800);    // 1 semana
@@ -12,31 +14,33 @@ define('CACHE_TIME_DATA', 1800);        // 30 minutos
  * @param string $type Tipo de contenido ('image', 'static', 'data')
  * @param bool $isPublic Si el contenido es público o privado
  */
-function setHeadersForContentType($type, $isPublic = true) {
-    $cacheControl = $isPublic ? 'public' : 'private';
+function setHeadersForContentType($type, $public = true) {
+    $cache_time = 0;
     
     switch ($type) {
-        case 'image':
-            $maxAge = CACHE_TIME_IMAGES;
+        case 'css':
+        case 'js':
+            $cache_time = 2592000; // 30 días
             break;
-        case 'static':
-            $maxAge = CACHE_TIME_STATIC;
+        case 'image':
+            $cache_time = 604800; // 7 días
             break;
         case 'data':
-            $maxAge = CACHE_TIME_DATA;
+            $cache_time = 300; // 5 minutos
             break;
         default:
-            $maxAge = 0;
-            $cacheControl = 'no-store';
+            $cache_time = 0; // No cachear
     }
-
-    // Establecer headers de caché
-    header('Cache-Control: ' . $cacheControl . ', max-age=' . $maxAge);
-    header('Pragma: ' . ($isPublic ? 'cache' : 'no-cache'));
     
-    // Establecer fecha de expiración
-    if ($maxAge > 0) {
-        header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $maxAge) . ' GMT');
+    if ($cache_time > 0) {
+        $privacy = $public ? 'public' : 'private';
+        header("Cache-Control: $privacy, max-age=$cache_time");
+        header('Pragma: cache');
+        header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cache_time) . ' GMT');
+    } else {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Cache-Control: post-check=0, pre-check=0', false);
+        header('Pragma: no-cache');
     }
 }
 
