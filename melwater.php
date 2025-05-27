@@ -261,30 +261,11 @@ ob_start();
         <div class="controls">
             <div class="filters">
                 <div class="filter-group">
-                    <label for="contentTypeSelect">Tipo de contenido:</label>
-                    <select id="contentTypeSelect">
-                        <option value="">Todos los tipos</option>
-                        <option value="meltwater">Meltwater</option>
-                        <option value="cover">Portadas</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
                     <label for="grupoSelect">Grupo:</label>
                     <select id="grupoSelect">
                         <option value="">Todos los grupos</option>
                         <?php foreach ($grupos as $grupo): ?>
                             <option value="<?= htmlspecialchars($grupo) ?>"><?= htmlspecialchars($grupo) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="countrySelect">País:</label>
-                    <select id="countrySelect">
-                        <option value="">Todos los países</option>
-                        <?php foreach ($paises as $pais): ?>
-                            <option value="<?= htmlspecialchars($pais) ?>"><?= htmlspecialchars($pais) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -427,8 +408,6 @@ ob_start();
             const modalLoader = document.getElementById('modalLoader');
             const closeModal = imageModal.querySelector('.close');
             const grupoSelect = document.getElementById('grupoSelect');
-            const countrySelect = document.getElementById('countrySelect');
-            const contentTypeSelect = document.getElementById('contentTypeSelect');
             const gallery = document.getElementById('gallery');
 
             function showModal(imageUrl) {
@@ -468,47 +447,28 @@ ob_start();
 
             const params = new URLSearchParams(window.location.search);
             const initialGrupo = params.get('grupo') || '';
-            const initialCountry = params.get('country') || '';
-            const initialType = params.get('type') || '';
 
             grupoSelect.value = initialGrupo;
-            countrySelect.value = initialCountry;
-            contentTypeSelect.value = initialType;
 
             function updateURL() {
                 const url = new URL(window.location);
                 const grupo = grupoSelect.value;
-                const country = countrySelect.value;
-                const type = contentTypeSelect.value;
 
                 if (grupo) url.searchParams.set('grupo', grupo);
                 else url.searchParams.delete('grupo');
-
-                if (country) url.searchParams.set('country', country);
-                else url.searchParams.delete('country');
-
-                if (type) url.searchParams.set('type', type);
-                else url.searchParams.delete('type');
 
                 history.replaceState(null, '', url);
             }
 
             function filterCards() {
                 const selectedGrupo = grupoSelect.value;
-                const selectedCountry = countrySelect.value;
-                const selectedType = contentTypeSelect.value;
                 
                 const cards = gallery.querySelectorAll('.card');
                 cards.forEach(card => {
                     const cardGrupo = card.dataset.grupo;
-                    const cardCountry = card.dataset.country;
-                    const cardType = card.dataset.sourceType;
-
                     const matchesGrupo = !selectedGrupo || cardGrupo === selectedGrupo;
-                    const matchesCountry = !selectedCountry || cardCountry === selectedCountry;
-                    const matchesType = !selectedType || cardType === selectedType;
 
-                    if (matchesGrupo && matchesCountry && matchesType) {
+                    if (matchesGrupo) {
                         card.style.display = '';
                     } else {
                         card.style.display = 'none';
@@ -519,10 +479,8 @@ ob_start();
             }
 
             grupoSelect.addEventListener('change', filterCards);
-            countrySelect.addEventListener('change', filterCards);
-            contentTypeSelect.addEventListener('change', filterCards);
             
-            if (initialGrupo || initialCountry || initialType) {
+            if (initialGrupo) {
                 filterCards();
             }
 
