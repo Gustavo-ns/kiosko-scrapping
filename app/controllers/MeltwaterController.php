@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../models/MeltwaterModel.php';
-require_once __DIR__ . '/../services/ImageService.php';
+require_once __DIR__ . '/../services/ImageServiceGD.php';
 
 class MeltwaterController {
     private $model;
@@ -9,7 +9,7 @@ class MeltwaterController {
     public function __construct() {
         try {
             $this->model = new MeltwaterModel();
-            $this->imageService = new ImageService();
+            $this->imageService = new ImageServiceGD();
         } catch (PDOException $e) {
             $this->handleDatabaseError($e);
         } catch (Exception $e) {
