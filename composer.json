@@ -1,13 +1,17 @@
 {
+  "name": "kiosko-scrapping",
+  "description": "Sistema de scraping para portadas de periódicos",
+  "type": "project",
   "require": {
-    "php": ">=7.4",
+    "php": ">=7.2",
     "fabpot/goutte": "^4.0",
     "guzzlehttp/guzzle": "^7.0",
     "ext-imagick": "*",
     "ext-curl": "*",
     "ext-pdo": "*",
     "ext-json": "*",
-    "symfony/dom-crawler": "^6.0"
+    "symfony/dom-crawler": "^5.4",
+    "symfony/css-selector": "^5.4"
   },
   "autoload": {
     "psr-4": {
