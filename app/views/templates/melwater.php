@@ -261,7 +261,7 @@ ob_start();
         <div class="controls">
             <div class="filters">
                 <div class="filter-group">
-                    <label for="grupoSelect">Grupo:</label>
+                    <label for="grupoSelect">Grupo1:</label>
                     <select id="grupoSelect">
                         <option value="">Todos los grupos</option>
                         <?php foreach ($grupos as $grupo): ?>
