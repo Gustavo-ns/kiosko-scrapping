@@ -2,6 +2,11 @@
 class ImageServiceGD {
     private $imageDir;
     private $thumbnailDir;
+    private $userAgents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
+    ];
 
     public function __construct() {
         $this->imageDir = __DIR__ . '/../../storage/images/original/';
@@ -14,6 +19,10 @@ class ImageServiceGD {
         if (!file_exists($this->thumbnailDir)) {
             mkdir($this->thumbnailDir, 0777, true);
         }
+    }
+
+    private function getRandomUserAgent() {
+        return $this->userAgents[array_rand($this->userAgents)];
     }
 
     public function downloadImage($url, $id) {
@@ -30,26 +39,61 @@ class ImageServiceGD {
         }
 
         try {
-            // Descargar imagen
+            // Extraer el dominio de la URL para el header Referer
+            $parsedUrl = parse_url($url);
+            $referer = $parsedUrl['scheme'] . '://' . $parsedUrl['host'] . '/';
+
+            // Configurar cURL con headers más realistas
             $ch = curl_init($url);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_TIMEOUT => 30
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_USERAGENT => $this->getRandomUserAgent(),
+                CURLOPT_HTTPHEADER => [
+                    'Accept: image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Accept-Language: es-ES,es;q=0.9,en;q=0.8',
+                    'Cache-Control: no-cache',
+                    'Pragma: no-cache',
+                    'Sec-Fetch-Dest: image',
+                    'Sec-Fetch-Mode: no-cors',
+                    'Sec-Fetch-Site: cross-site'
+                ],
+                CURLOPT_REFERER => $referer,
+                CURLOPT_ENCODING => 'gzip, deflate',
+                CURLOPT_COOKIEJAR => __DIR__ . '/../../storage/cookies.txt',
+                CURLOPT_COOKIEFILE => __DIR__ . '/../../storage/cookies.txt'
             ]);
             
             $imageData = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
             curl_close($ch);
 
-            if ($httpCode !== 200 || !$imageData) {
-                throw new Exception("Error descargando imagen: HTTP $httpCode");
+            if ($httpCode !== 200) {
+                throw new Exception("Error descargando imagen: HTTP $httpCode - URL: $url");
+            }
+
+            if (!$imageData || strlen($imageData) < 100) {
+                throw new Exception("Datos de imagen inválidos o vacíos");
+            }
+
+            // Verificar que el contenido es una imagen
+            if (!preg_match('/^image\//i', $contentType)) {
+                throw new Exception("El contenido descargado no es una imagen ($contentType)");
             }
 
             // Guardar imagen temporal
             $tempFile = tempnam(sys_get_temp_dir(), 'img_');
-            file_put_contents($tempFile, $imageData);
+            if (!file_put_contents($tempFile, $imageData)) {
+                throw new Exception("No se pudo guardar la imagen temporal");
+            }
+
+            // Verificar que el archivo es una imagen válida
+            if (!getimagesize($tempFile)) {
+                throw new Exception("El archivo descargado no es una imagen válida");
+            }
 
             // Crear imagen original
             list($width, $height, $type) = getimagesize($tempFile);
@@ -60,7 +104,9 @@ class ImageServiceGD {
             }
 
             // Guardar original
-            imagejpeg($source, $originalPath, 90);
+            if (!imagejpeg($source, $originalPath, 90)) {
+                throw new Exception("Error guardando imagen original");
+            }
 
             // Crear y guardar thumbnail
             $maxWidth = 325;
@@ -71,6 +117,13 @@ class ImageServiceGD {
             $newHeight = round($height * $ratio);
 
             $thumbnail = imagecreatetruecolor($newWidth, $newHeight);
+            
+            // Mantener transparencia si es PNG
+            if ($type === IMAGETYPE_PNG) {
+                imagealphablending($thumbnail, false);
+                imagesavealpha($thumbnail, true);
+            }
+
             imagecopyresampled(
                 $thumbnail, $source,
                 0, 0, 0, 0,
@@ -78,7 +131,9 @@ class ImageServiceGD {
                 $width, $height
             );
 
-            imagejpeg($thumbnail, $thumbnailPath, 80);
+            if (!imagejpeg($thumbnail, $thumbnailPath, 80)) {
+                throw new Exception("Error guardando thumbnail");
+            }
 
             // Liberar memoria
             imagedestroy($source);
@@ -95,7 +150,7 @@ class ImageServiceGD {
             ];
 
         } catch (Exception $e) {
-            error_log("Error procesando imagen: " . $e->getMessage());
+            error_log("Error procesando imagen: " . $e->getMessage() . " - URL: $url");
             
             // Limpiar archivos en caso de error
             if (isset($tempFile) && file_exists($tempFile)) {

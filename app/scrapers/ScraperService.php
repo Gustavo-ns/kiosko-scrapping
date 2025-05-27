@@ -179,30 +179,44 @@ class ScraperService {
         $xpath = $site['xpath'];
         $attribute = isset($site['attribute']) ? $site['attribute'] : 'href';
 
+        // Agregar delay aleatorio para evitar bloqueos
+        usleep(rand(500000, 2000000)); // delay entre 0.5 y 2 segundos
+
         $ch = curl_init();
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT => 7,
-            CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; scraper-bot)',
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_USERAGENT => $this->getRandomUserAgent(),
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_SSL_VERIFYPEER => 0,
-            CURLOPT_RANGE => '0-65535',
-            CURLOPT_HTTPHEADER => ['Accept: text/html'],
+            CURLOPT_ENCODING => 'gzip, deflate',
+            CURLOPT_HTTPHEADER => [
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language: es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
+                'Cache-Control: no-cache',
+                'Pragma: no-cache',
+                'DNT: 1'
+            ],
+            CURLOPT_COOKIEJAR => __DIR__ . '/../../storage/cookies.txt',
+            CURLOPT_COOKIEFILE => __DIR__ . '/../../storage/cookies.txt'
         ]);
 
         $html = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if (!$html || strlen($html) < 100) {
+        if ($httpCode !== 200 || !$html || strlen($html) < 100) {
+            error_log("Error obteniendo página $url: HTTP $httpCode");
             return null;
         }
 
         libxml_use_internal_errors(true);
         $dom = new DOMDocument();
         if (!$dom->loadHTML($html)) {
+            error_log("Error parseando HTML de $url");
             return null;
         }
 
@@ -211,12 +225,24 @@ class ScraperService {
         if ($nodes && $nodes->length > 0) {
             $imageUrl = $nodes->item(0)->getAttribute($attribute);
             if ($imageUrl) {
-                $this->storeCover($country, basename($url), $imageUrl, $url);
-                return ['url' => $url, 'image' => $imageUrl];
+                $imageUrl = $this->makeAbsoluteUrl($url, $imageUrl);
+                if ($this->storeCover($country, basename($url), $imageUrl, $url)) {
+                    return ['url' => $url, 'image' => $imageUrl];
+                }
             }
         }
 
         return null;
+    }
+
+    private function getRandomUserAgent() {
+        $userAgents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/91.0.864.59 Safari/537.36'
+        ];
+        return $userAgents[array_rand($userAgents)];
     }
 
     private function scrapeNormal($site, $country) {

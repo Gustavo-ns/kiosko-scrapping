@@ -1,18 +1,18 @@
 {
   "name": "Kiosko de Gustavo",
   "short_name": "Kiosko",
-  "start_url": "/kiosko/",
+  "start_url": "/public/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#003366",
   "icons": [
     {
-      "src": "/kiosko/favicon/favicon-192x192.png",
+      "src": "/public/favicon/favicon-192x192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/kiosko/favicon/favicon-512x512.png",
+      "src": "/public/favicon/favicon-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
