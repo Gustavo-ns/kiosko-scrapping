@@ -2,48 +2,75 @@
 
 class Router {
     private $routes = [];
-    private $basePath;
+    private $notFoundCallback;
 
     public function __construct() {
-        // Detectar el directorio base de la aplicación
-        $scriptName = dirname($_SERVER['SCRIPT_NAME']);
-        $this->basePath = $scriptName === '/' ? '' : $scriptName;
+        // Establecer un manejador por defecto para rutas no encontradas
+        $this->notFoundCallback = function() {
+            http_response_code(404);
+            echo "404 - Página no encontrada";
+        };
     }
 
-    public function get($path, $handler) {
-        $this->routes['GET'][$path] = $handler;
-    }
-
-    public function post($path, $handler) {
-        $this->routes['POST'][$path] = $handler;
-    }
-
-    public function dispatch($method, $uri) {
-        // Remover el directorio base de la URI
-        $uri = str_replace($this->basePath, '', $uri);
+    public function add($method, $path, $callback) {
+        // Normalizar el método y la ruta
+        $method = strtoupper($method);
+        $path = '/'. trim($path, '/');
         
-        // Asegurarse de que la URI comience con /
-        $uri = '/' . ltrim($uri, '/');
-
-        if (!isset($this->routes[$method][$uri])) {
-            throw new Exception("Ruta no encontrada: $method $uri");
+        if ($path === '/') {
+            $path = '/index';
         }
-
-        $handler = $this->routes[$method][$uri];
-        list($controller, $action) = explode('@', $handler);
-
-        $controllerFile = APP_PATH . "/controllers/{$controller}.php";
-        if (!file_exists($controllerFile)) {
-            throw new Exception("Controlador no encontrado: $controller");
-        }
-
-        require_once $controllerFile;
-        $controllerInstance = new $controller();
         
-        if (!method_exists($controllerInstance, $action)) {
-            throw new Exception("Acción no encontrada: $action en $controller");
+        // Convertir la ruta en una expresión regular
+        $pattern = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?P<$1>[^/]+)', $path);
+        $pattern = "#^{$pattern}/?$#";
+        
+        $this->routes[$method][$pattern] = [
+            'callback' => $callback,
+            'original' => $path
+        ];
+        
+        return $this;
+    }
+
+    public function get($path, $callback) {
+        return $this->add('GET', $path, $callback);
+    }
+
+    public function post($path, $callback) {
+        return $this->add('POST', $path, $callback);
+    }
+
+    public function notFound($callback) {
+        $this->notFoundCallback = $callback;
+        return $this;
+    }
+
+    public function dispatch() {
+        $method = $_SERVER['REQUEST_METHOD'];
+        $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $uri = '/'. trim($uri, '/');
+        
+        if ($uri === '/') {
+            $uri = '/index';
         }
 
-        return $controllerInstance->$action();
+        // Buscar una ruta coincidente
+        if (isset($this->routes[$method])) {
+            foreach ($this->routes[$method] as $pattern => $route) {
+                if (preg_match($pattern, $uri, $matches)) {
+                    // Filtrar solo los parámetros nombrados
+                    $params = array_filter($matches, function($key) {
+                        return !is_numeric($key);
+                    }, ARRAY_FILTER_USE_KEY);
+                    
+                    // Ejecutar el callback con los parámetros
+                    return call_user_func_array($route['callback'], $params);
+                }
+            }
+        }
+
+        // Si no se encuentra la ruta, ejecutar el manejador 404
+        return call_user_func($this->notFoundCallback);
     }
 } 
