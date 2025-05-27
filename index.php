@@ -149,6 +149,12 @@ ob_start();
             background: #f5f5f5;
         }
 
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
         .controls {
             display: flex;
             padding: 1rem;
@@ -159,6 +165,8 @@ ob_start();
             z-index: 100;
             flex-direction: column;
             gap: 1rem;
+            height: auto;
+            min-height: 64px; /* Reservar espacio mínimo */
         }
 
         .filters {
@@ -166,12 +174,15 @@ ob_start();
             gap: 1rem;
             flex-wrap: wrap;
             justify-content: center;
+            width: 100%;
+            min-height: 40px; /* Reservar espacio mínimo */
         }
 
         .filter-group {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            height: 40px; /* Altura fija */
         }
 
         .filter-group select {
@@ -181,6 +192,8 @@ ob_start();
             background: #333;
             color: white;
             font-size: 1rem;
+            height: 40px; /* Altura fija */
+            min-width: 200px; /* Ancho mínimo */
         }
 
         #refreshBtn {
@@ -191,13 +204,18 @@ ob_start();
             color: white;
             cursor: pointer;
             font-size: 1rem;
+            height: 40px; /* Altura fija */
+            min-width: 120px; /* Ancho mínimo */
         }
 
         .gallery {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            justify-items: stretch;
+            align-content: space-between;
             gap: 1rem;
             padding: 1rem;
+            flex: 1;
         }
 
         .card {
@@ -207,13 +225,17 @@ ob_start();
             height: 100%;
             display: flex;
             flex-direction: column;
+            aspect-ratio: 0.65; /* Mantener proporción consistente */
+            contain: layout style paint; /* Optimizar rendimiento */
         }
 
         .image-container {
             position: relative;
-            aspect-ratio: 325/500;
+            width: 100%;
+            aspect-ratio: 0.65; /* Proporción consistente con la tarjeta */
             background: #f0f0f0;
             overflow: hidden;
+            contain: layout size style paint; /* Optimizar rendimiento */
         }
 
         .image-container img {
@@ -223,9 +245,15 @@ ob_start();
             width: 100%;
             height: 100%;
             object-fit: cover;
+            opacity: 0; /* Iniciar invisible */
+            transition: opacity 0.2s ease-in-out;
         }
 
-        /* Basic shimmer effect for first paint */
+        .image-container img.loaded {
+            opacity: 1;
+        }
+
+        /* Placeholder shimmer con dimensiones fijas */
         .image-container::before {
             content: '';
             position: absolute;
@@ -235,6 +263,47 @@ ob_start();
             height: 100%;
             background: linear-gradient(90deg, #f0f0f0, #f8f8f8, #f0f0f0);
             background-size: 200% 100%;
+            pointer-events: none;
+        }
+
+        .info {
+            padding: 1rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-height: 100px; /* Altura mínima para el contenido */
+        }
+
+        .info h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            line-height: 1.2;
+        }
+
+        .info small {
+            display: block;
+            line-height: 1.4;
+        }
+
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal img {
+            max-width: 90%;
+            max-height: 90vh;
+            object-fit: contain;
         }
     </style>
 </head>

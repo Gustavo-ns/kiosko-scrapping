@@ -90,7 +90,7 @@ function makeAbsoluteUrl($baseUrl, $relativeUrl) {
 }
 
 function saveImageLocally($imageUrl, $country, $alt) {
-    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid() . '.jpg';
+    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid() . '.webp';
     $savePath = __DIR__ . "/images/$filename";
 
     $imageData = @file_get_contents($imageUrl);
@@ -118,34 +118,36 @@ function saveImageLocally($imageUrl, $country, $alt) {
     }
 
     try {
-        switch ($mime) {
-            case 'image/jpeg':
-                $image = imagecreatefromjpeg($tempFile);
-                imagejpeg($image, $savePath);
-                break;
-            case 'image/png':
-                $image = imagecreatefrompng($tempFile);
-                imagepng($image, $savePath);
-                break;
-            case 'image/gif':
-                $image = imagecreatefromgif($tempFile);
-                imagegif($image, $savePath);
-                break;
-            case 'image/webp':
-                if (!function_exists('imagecreatefromwebp')) throw new Exception("WebP no soportado en GD");
-                $image = imagecreatefromwebp($tempFile);
-                imagewebp($image, $savePath);
-                break;
-        }
-        imagedestroy($image);
+        // Crear objeto Imagick
+        $imagick = new Imagick($tempFile);
+        $imagick->setImageFormat('webp');
+        
+        // Configurar calidad y compresión
+        $imagick->setImageCompressionQuality(85);
+        $imagick->setOption('webp:lossless', 'false');
+        $imagick->setOption('webp:method', '6');
+        
+        // Redimensionar manteniendo proporción si es necesario
+        $width = $imagick->getImageWidth();
+        $height = $imagick->getImageHeight();
+        
+        // Redimensionar a 325x500 manteniendo proporción
+        $imagick->resizeImage(325, 500, Imagick::FILTER_LANCZOS, 1, true);
+        
+        // Guardar imagen
+        $imagick->writeImage($savePath);
+        
+        // Limpiar
+        $imagick->clear();
+        unlink($tempFile);
+        
+        return "images/$filename";
     } catch (Exception $e) {
         error_log("Error procesando la imagen: $imageUrl - " . $e->getMessage());
-        unlink($tempFile);
+        if (file_exists($tempFile)) unlink($tempFile);
+        if (file_exists($savePath)) unlink($savePath);
         return false;
     }
-
-    unlink($tempFile);
-    return "images/$filename";
 }
 
 function storeCover($country, $alt, $urlImg, $sourceLink) {
@@ -156,7 +158,13 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
         $local = saveImageLocally($urlImg, $country, $alt);
         if ($local) {
             $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link) VALUES(:c,:t,:i,:s,:l)");
-            $ins->execute([':c' => $country, ':t' => $alt, ':i' => $local, ':s' => $sourceLink, ':l' => $urlImg]);
+            $ins->execute([
+                ':c' => $country, 
+                ':t' => $alt, 
+                ':i' => $local,
+                ':s' => $sourceLink, 
+                ':l' => $urlImg
+            ]);
         }
     }
 }
