@@ -1,9 +1,17 @@
 <?php
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/../../app/config/cache_config.php';
 require_once __DIR__ . '/../../app/services/ImageService.php';
 
 // Cargar configuración de la base de datos
 $cfg = require __DIR__ . '/../../app/config/config.php';
+
+// Instanciar ImageService
+$imageService = new ImageService();
 
 // Función para obtener el hash del contenido actual
 function getContentHash($pdo) {
@@ -276,12 +284,14 @@ ob_start();
 
         <div id="gallery" class="gallery">
             <?php foreach ($documents as $doc): 
+            
                 // Variables comunes
                 $source_type = $doc['source_type'];
                 
                 if ($source_type === 'meltwater') {
                     // Datos de Meltwater
                     $content_image = isset($doc['content_image']) ? htmlspecialchars($doc['content_image']) : '';
+                    
                     if (empty($content_image)) continue; // Skip if no image
                     
                     $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
@@ -296,13 +306,26 @@ ob_start();
                     $twitter_screen_name = isset($doc['twitter_screen_name']) ? htmlspecialchars($doc['twitter_screen_name']) : '';
                     $dereach = isset($doc['dereach']) ? $doc['dereach'] : 0;
                     
+                    
                     // Procesar imagen usando ImageService
                     $image_paths = '';
                     if ($content_image) {
-                        $image_paths = $imageService->downloadImage($content_image, $external_id);
+                        try {
+                            $image_paths = $imageService->downloadImage($content_image, $external_id);
+                            if (!$image_paths) {
+                                error_log("Error al descargar imagen: $content_image para ID: $external_id");
+                                continue;
+                            }
+                            $display_image = $image_paths['thumbnail'];
+                            $zoom_image = $image_paths['original'];
+                        } catch (Exception $e) {
+                            error_log("Excepción al procesar imagen: " . $e->getMessage());
+                            $display_image = $content_image;
+                            $zoom_image = $content_image;
+                        }
                     }
-                    $display_image = $image_paths ? $image_paths['thumbnail'] : $content_image;
-                    $zoom_image = $image_paths ? $image_paths['original'] : $content_image;
+                    
+                    
                 } else {
                     // Datos de covers
                     $content_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
@@ -327,6 +350,7 @@ ob_start();
                 // Determinar si es una de las primeras 6 imágenes (above the fold)
                 static $image_count = 0;
                 $image_count++;
+                
                 $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
             ?>
                 <div class="card" 
@@ -491,11 +515,16 @@ ob_start();
                 refreshBtn.textContent = '🔄 Actualizando...';
                 
                 try {
-                    const response = await fetch('/?action=update');
+                    console.log('Iniciando actualización...');
+                    const response = await fetch('/update');
+                    console.log('Respuesta recibida:', response);
+                    
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
+                    
                     const data = await response.json();
+                    console.log('Datos recibidos:', data);
                     
                     if (data.success) {
                         location.reload();

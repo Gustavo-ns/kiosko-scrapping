@@ -2,26 +2,53 @@
 class ImageService {
     private $imageDir;
     private $thumbnailDir;
+    private $lastError;
 
     public function __construct() {
         $this->imageDir = __DIR__ . '/../../storage/images/original/';
         $this->thumbnailDir = __DIR__ . '/../../storage/images/thumbnails/';
+        $this->lastError = '';
         
-        // Asegurar que los directorios existan
-        if (!file_exists($this->imageDir)) {
-            mkdir($this->imageDir, 0777, true);
-        }
-        if (!file_exists($this->thumbnailDir)) {
-            mkdir($this->thumbnailDir, 0777, true);
-        }
+        // Asegurar que los directorios existan y sean escribibles
+        $this->checkAndCreateDirectory($this->imageDir);
+        $this->checkAndCreateDirectory($this->thumbnailDir);
 
         // Verificar soporte WebP
         if (!function_exists('imagewebp')) {
-            error_log("Este servidor no soporta la conversión a WebP. Se requiere PHP GD con soporte WebP.");
+            $this->lastError = "Este servidor no soporta la conversión a WebP. Se requiere PHP GD con soporte WebP.";
+            error_log($this->lastError);
         }
     }
 
+    private function checkAndCreateDirectory($dir) {
+        if (!file_exists($dir)) {
+            if (!@mkdir($dir, 0777, true)) {
+                $error = error_get_last();
+                $errorMessage = isset($error['message']) ? $error['message'] : 'Error desconocido';
+                $this->lastError = "No se pudo crear el directorio $dir: " . $errorMessage;
+                error_log($this->lastError);
+                throw new Exception($this->lastError);
+            }
+        }
+        
+        if (!is_writable($dir)) {
+            $this->lastError = "El directorio $dir no tiene permisos de escritura";
+            error_log($this->lastError);
+            throw new Exception($this->lastError);
+        }
+    }
+
+    public function getLastError() {
+        return $this->lastError;
+    }
+
     public function downloadImage($url, $id) {
+        if (empty($url) || empty($id)) {
+            $this->lastError = "URL o ID vacíos";
+            error_log($this->lastError);
+            return false;
+        }
+
         // Definir rutas de archivos
         $originalPath = $this->imageDir . $id . '.webp';
         $thumbnailPath = $this->thumbnailDir . $id . '.webp';
@@ -29,8 +56,8 @@ class ImageService {
         // Si ya existe la imagen, retornar las rutas
         if (file_exists($originalPath) && file_exists($thumbnailPath)) {
             return [
-                'original' => str_replace($_SERVER['DOCUMENT_ROOT'], '', $originalPath),
-                'thumbnail' => str_replace($_SERVER['DOCUMENT_ROOT'], '', $thumbnailPath)
+                'original' => '/storage/images/original/' . $id . '.webp',
+                'thumbnail' => '/storage/images/thumbnails/' . $id . '.webp'
             ];
         }
 
@@ -43,15 +70,17 @@ class ImageService {
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_TIMEOUT => 30
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             ]);
             
             $imageData = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
             curl_close($ch);
 
             if ($httpCode !== 200 || !$imageData) {
-                throw new Exception("Error descargando imagen: HTTP $httpCode");
+                throw new Exception("Error descargando imagen: HTTP $httpCode - $error");
             }
 
             // Guardar imagen temporal
@@ -59,23 +88,29 @@ class ImageService {
                 throw new Exception("Error guardando imagen temporal");
             }
 
+            // Verificar que es una imagen válida
+            if (!getimagesize($tempFile)) {
+                throw new Exception("El archivo descargado no es una imagen válida");
+            }
+
             // Convertir a WebP y crear versión original
             if (!$this->convertToWebP($tempFile, $originalPath, 90)) {
-                throw new Exception("Error convirtiendo imagen original a WebP");
+                throw new Exception("Error convirtiendo imagen original a WebP: " . $this->lastError);
             }
 
             // Crear miniatura
             if (!$this->convertToWebP($tempFile, $thumbnailPath, 80, 325, 500)) {
-                throw new Exception("Error creando thumbnail WebP");
+                throw new Exception("Error creando thumbnail WebP: " . $this->lastError);
             }
 
             return [
-                'original' => str_replace($_SERVER['DOCUMENT_ROOT'], '', $originalPath),
-                'thumbnail' => str_replace($_SERVER['DOCUMENT_ROOT'], '', $thumbnailPath)
+                'original' => '/storage/images/original/' . $id . '.webp',
+                'thumbnail' => '/storage/images/thumbnails/' . $id . '.webp'
             ];
 
         } catch (Exception $e) {
-            error_log("Error procesando imagen: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
+            error_log("Error procesando imagen {$url}: " . $e->getMessage());
             return false;
         } finally {
             // Limpiar archivo temporal
