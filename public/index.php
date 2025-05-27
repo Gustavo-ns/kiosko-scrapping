@@ -36,19 +36,15 @@ $router = new Router();
 
 // Definir rutas
 $router->get('/', function() {
-    include BASE_PATH . '/public/views/home.php';
+    include BASE_PATH . '/public/views/mealwater.php';
 });
 
 $router->get('/covers', function() {
     include BASE_PATH . '/public/views/covers.php';
 });
 
-$router->get('/check', function() {
-    include BASE_PATH . '/public/check_covers.php';
-});
-
-$router->get('/test', function() {
-    include BASE_PATH . '/public/test_sites.php';
+$router->get('/mealwater', function() {
+    include BASE_PATH . '/public/views/mealwater.php';
 });
 
 // Manejar 404

@@ -3,6 +3,7 @@
 class Router {
     private $routes = [];
     private $notFoundCallback;
+    private $baseUrl;
 
     public function __construct() {
         // Establecer un manejador por defecto para rutas no encontradas
@@ -10,6 +11,9 @@ class Router {
             http_response_code(404);
             echo "404 - Página no encontrada";
         };
+        
+        // Detectar el base URL
+        $this->baseUrl = '/kiosko-scrapping/public';
     }
 
     public function add($method, $path, $callback) {
@@ -49,6 +53,12 @@ class Router {
     public function dispatch() {
         $method = $_SERVER['REQUEST_METHOD'];
         $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        
+        // Remover el base URL del URI
+        if (strpos($uri, $this->baseUrl) === 0) {
+            $uri = substr($uri, strlen($this->baseUrl));
+        }
+        
         $uri = '/'. trim($uri, '/');
         
         if ($uri === '/') {

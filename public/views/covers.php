@@ -105,12 +105,10 @@ try {
 <body>
     <div class="container">
         <div class="menu">
-            <a href="/">Inicio</a>
-            <a href="/check">Verificar Sistema</a>
-            <a href="/test">Probar Sitios</a>
+            <a href="/kiosko-scrapping/public/">Volver a Portadas</a>
         </div>
 
-        <h1>Portadas de Periódicos</h1>
+        <h1>Todas las Portadas</h1>
 
         <div class="filters">
             <form method="GET">
@@ -151,7 +149,7 @@ try {
             $stmt = $pdo->prepare("
                 SELECT * FROM covers 
                 $where 
-                ORDER BY created_at DESC 
+                ORDER BY scraped_at DESC 
                 LIMIT :offset, :perPage
             ");
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
@@ -164,14 +162,14 @@ try {
             while ($cover = $stmt->fetch()) {
                 echo "<div class='cover-card'>";
                 if (!empty($cover['local_path']) && file_exists($cover['local_path'])) {
-                    echo "<img src='/storage/images/{$cover['local_path']}' alt='{$cover['title']}'>";
+                    echo "<img test src='./storage/images/{$cover['local_path']}' alt='{$cover['title']}'>";
                 } else {
                     echo "<img src='{$cover['image_url']}' alt='{$cover['title']}'>";
                 }
                 echo "<div class='cover-info'>";
                 echo "<h3>{$cover['title']}</h3>";
                 echo "<p>País: {$cover['country']}</p>";
-                echo "<p>Fecha: " . date('d/m/Y H:i', strtotime($cover['created_at'])) . "</p>";
+                echo "<p>Fecha: " . date('d/m/Y H:i', strtotime($cover['scraped_at'])) . "</p>";
                 echo "</div></div>";
             }
             ?>

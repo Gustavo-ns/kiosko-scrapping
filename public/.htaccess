@@ -1,15 +1,13 @@
 # Activar el motor de reescritura
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteBase /public/
+RewriteEngine On
+RewriteBase /kiosko-scrapping/public/
 
-    # Si la ruta no es un archivo o directorio existente
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    
-    # Redirigir todo a index.php
-    RewriteRule ^(.*)$ index.php [QSA,L]
-</IfModule>
+# Si la ruta no es un archivo o directorio existente
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirigir todo a index.php
+RewriteRule ^(.*)$ index.php [QSA,L]
 
 # Permitir acceso a archivos estáticos
 <FilesMatch "\.(css|js|jpg|jpeg|png|gif|ico|webp)$">
@@ -38,4 +36,12 @@ AddDefaultCharset UTF-8
     ExpiresByType text/css "access plus 1 month"
     ExpiresByType application/javascript "access plus 1 month"
     ExpiresByType text/javascript "access plus 1 month"
-</IfModule> 
+</IfModule>
+
+# Enable access to the directory
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# Handle errors
+ErrorDocument 404 /kiosko-scrapping/public/index.php 

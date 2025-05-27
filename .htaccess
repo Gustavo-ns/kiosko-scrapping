@@ -63,16 +63,7 @@ AddDefaultCharset UTF-8
     Header set Access-Control-Allow-Origin "*"
 </FilesMatch>
 
-# Configuración específica para el directorio storage
-<Directory "/storage/images">
-    Options FollowSymLinks
-    AllowOverride None
-    Require all granted
-    
-    <IfModule mod_headers.c>
-        Header set Access-Control-Allow-Origin "*"
-    </IfModule>
-</Directory>
+
 
 # Prevenir listado de directorios
 Options -Indexes

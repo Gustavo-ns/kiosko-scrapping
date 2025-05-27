@@ -65,9 +65,8 @@
         <h1>Sistema de Portadas de Periódicos</h1>
         
         <div class="menu">
-            <a href="/covers">Ver Portadas</a>
-            <a href="/check">Verificar Sistema</a>
-            <a href="/test">Probar Sitios</a>
+            <a href="/kiosko-scrapping/public/covers">Ver Portadas</a>
+            <a href="/kiosko-scrapping/public/mealwater">Portadas Mealwater</a>
         </div>
 
         <div class="status">
