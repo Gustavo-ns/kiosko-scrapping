@@ -5,7 +5,7 @@
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
-        'reference' => 'a166aa6a029ab849442cb1e1aef82936f5b715b6',
+        'reference' => '83758aa24173337dcafd062ad505e2b21b1ea24e',
         'name' => '__root__',
         'dev' => true,
     ),
@@ -16,7 +16,7 @@
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
-            'reference' => 'a166aa6a029ab849442cb1e1aef82936f5b715b6',
+            'reference' => '83758aa24173337dcafd062ad505e2b21b1ea24e',
             'dev_requirement' => false,
         ),
         'fabpot/goutte' => array(

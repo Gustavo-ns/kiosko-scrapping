@@ -12,6 +12,29 @@ define('STORAGE_PATH', ROOT_PATH . '/storage');
 define('PUBLIC_PATH', ROOT_PATH . '/public');
 define('ASSETS_VERSION', '1.0.0');
 
+// Crear directorios necesarios si no existen
+$directories = [
+    STORAGE_PATH . '/images',
+    ROOT_PATH . '/logs',
+];
+
+foreach ($directories as $dir) {
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+}
+
+// Verificar extensiones requeridas
+$required_extensions = ['pdo', 'curl', 'imagick', 'json'];
+foreach ($required_extensions as $ext) {
+    if (!extension_loaded($ext)) {
+        die("La extensión $ext es requerida pero no está instalada.");
+    }
+}
+
+// Cargar el autoloader de Composer
+require_once ROOT_PATH . '/vendor/autoload.php';
+
 // Cargar configuraciones
 require_once CONFIG_PATH . '/config.php';
 require_once CONFIG_PATH . '/cache_config.php';

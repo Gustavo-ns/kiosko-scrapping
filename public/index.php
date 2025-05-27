@@ -40,55 +40,23 @@ function uncaughtExceptionHandler($e) {
 }
 set_exception_handler('uncaughtExceptionHandler');
 
+// Cargar el bootstrap
+require_once __DIR__ . '/../app/config/bootstrap.php';
+
+// Crear una instancia del router
+$router = new Router();
+
+// Cargar las rutas
+require_once APP_PATH . '/routes.php';
+
+// Procesar la solicitud
 try {
-    // Cargar bootstrap que contiene las definiciones de constantes y configuración básica
-    $bootstrap_file = dirname(__DIR__) . '/app/config/bootstrap.php';
-    if (!file_exists($bootstrap_file)) {
-        throw new Exception("El archivo bootstrap.php no existe en: $bootstrap_file");
-    }
-    require_once $bootstrap_file;
-
-    // Obtener la acción de la URL
-    $action = isset($_GET['action']) ? $_GET['action'] : 'index';
-
-    // Debug de enrutamiento
-    echo "<h2>Información de Enrutamiento:</h2>";
-    echo "<pre>";
-    echo "Acción solicitada: " . htmlspecialchars($action) . "\n";
-    echo "REQUEST_URI: " . $_SERVER['REQUEST_URI'] . "\n";
-    echo "</pre>";
-
-    // Instanciar el controlador apropiado basado en la ruta
-    switch ($action) {
-        case 'update':
-            $controller = new MeltwaterController();
-            $controller->update();
-            break;
-        case 'api':
-            $controller = new ApiController();
-            $controller->getCovers();
-            break;
-        default:
-            $controller = new MeltwaterController();
-            $controller->index();
-            break;
-    }
+    $router->dispatch($_SERVER['REQUEST_METHOD'], parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 } catch (Exception $e) {
-    // Log del error
-    error_log($e->getMessage());
-    
-    if (ini_get('display_errors')) {
-        echo "<h1>Error de Aplicación</h1>";
-        echo "<pre>";
-        echo "Mensaje: " . htmlspecialchars($e->getMessage()) . "\n";
-        echo "Archivo: " . htmlspecialchars($e->getFile()) . "\n";
-        echo "Línea: " . $e->getLine() . "\n";
-        echo "Traza:\n" . htmlspecialchars($e->getTraceAsString());
-        echo "</pre>";
-    } else {
-        // Mensaje genérico para producción
-        header('HTTP/1.1 500 Internal Server Error');
-        echo "<h1>Error del Sistema</h1>";
-        echo "<p>Ha ocurrido un error. Por favor, contacte al administrador.</p>";
-    }
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
 } 

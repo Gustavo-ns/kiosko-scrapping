@@ -261,30 +261,11 @@ ob_start();
         <div class="controls">
             <div class="filters">
                 <div class="filter-group">
-                    <label for="contentTypeSelect">Tipo de contenido:</label>
-                    <select id="contentTypeSelect">
-                        <option value="">Todos los tipos</option>
-                        <option value="meltwater">Meltwater</option>
-                        <option value="cover">Portadas</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
                     <label for="grupoSelect">Grupo:</label>
                     <select id="grupoSelect">
                         <option value="">Todos los grupos</option>
                         <?php foreach ($grupos as $grupo): ?>
                             <option value="<?= htmlspecialchars($grupo) ?>"><?= htmlspecialchars($grupo) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="countrySelect">País:</label>
-                    <select id="countrySelect">
-                        <option value="">Todos los países</option>
-                        <?php foreach ($paises as $pais): ?>
-                            <option value="<?= htmlspecialchars($pais) ?>"><?= htmlspecialchars($pais) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -300,9 +281,11 @@ ob_start();
                 
                 if ($source_type === 'meltwater') {
                     // Datos de Meltwater
+                    $content_image = isset($doc['content_image']) ? htmlspecialchars($doc['content_image']) : '';
+                    if (empty($content_image)) continue; // Skip if no image
+                    
                     $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
                     $url_destino = isset($doc['url_destino']) ? htmlspecialchars($doc['url_destino']) : '#';
-                    $content_image = isset($doc['content_image']) ? htmlspecialchars($doc['content_image']) : '';
                     $author_name = isset($doc['author_name']) ? htmlspecialchars($doc['author_name']) : 'Sin nombre';
                     $external_id = isset($doc['external_id']) ? htmlspecialchars($doc['external_id']) : '';
                     $published_date = isset($doc['published_date']) ? htmlspecialchars($doc['published_date']) : '';
@@ -322,9 +305,11 @@ ob_start();
                     $zoom_image = $image_paths ? $image_paths['original'] : $content_image;
                 } else {
                     // Datos de covers
+                    $content_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
+                    if (empty($content_image)) continue; // Skip if no image
+                    
                     $grupo = '';
                     $url_destino = isset($doc['source']) ? htmlspecialchars($doc['source']) : '#';
-                    $content_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
                     $author_name = isset($doc['title']) ? htmlspecialchars($doc['title']) : 'Sin nombre';
                     $external_id = '';
                     $published_date = isset($doc['scraped_at']) ? htmlspecialchars($doc['scraped_at']) : '';
@@ -371,7 +356,7 @@ ob_start();
                         </div>
                     </a>
                     <div class="info">
-                        <h3><?= $author_name ?></h3>
+                        <h3><?= $twitter_screen_name ?></h3>
                         <?php if ($source_type === 'meltwater' && $twitter_screen_name): ?>
                             <small class="medio-info">
                                 @<?= $twitter_screen_name ?>
@@ -427,8 +412,6 @@ ob_start();
             const modalLoader = document.getElementById('modalLoader');
             const closeModal = imageModal.querySelector('.close');
             const grupoSelect = document.getElementById('grupoSelect');
-            const countrySelect = document.getElementById('countrySelect');
-            const contentTypeSelect = document.getElementById('contentTypeSelect');
             const gallery = document.getElementById('gallery');
 
             function showModal(imageUrl) {
@@ -468,61 +451,37 @@ ob_start();
 
             const params = new URLSearchParams(window.location.search);
             const initialGrupo = params.get('grupo') || '';
-            const initialCountry = params.get('country') || '';
-            const initialType = params.get('type') || '';
 
             grupoSelect.value = initialGrupo;
-            countrySelect.value = initialCountry;
-            contentTypeSelect.value = initialType;
-
-            function updateURL() {
-                const url = new URL(window.location);
-                const grupo = grupoSelect.value;
-                const country = countrySelect.value;
-                const type = contentTypeSelect.value;
-
-                if (grupo) url.searchParams.set('grupo', grupo);
-                else url.searchParams.delete('grupo');
-
-                if (country) url.searchParams.set('country', country);
-                else url.searchParams.delete('country');
-
-                if (type) url.searchParams.set('type', type);
-                else url.searchParams.delete('type');
-
-                history.replaceState(null, '', url);
-            }
 
             function filterCards() {
                 const selectedGrupo = grupoSelect.value;
-                const selectedCountry = countrySelect.value;
-                const selectedType = contentTypeSelect.value;
                 
                 const cards = gallery.querySelectorAll('.card');
                 cards.forEach(card => {
                     const cardGrupo = card.dataset.grupo;
-                    const cardCountry = card.dataset.country;
-                    const cardType = card.dataset.sourceType;
-
                     const matchesGrupo = !selectedGrupo || cardGrupo === selectedGrupo;
-                    const matchesCountry = !selectedCountry || cardCountry === selectedCountry;
-                    const matchesType = !selectedType || cardType === selectedType;
-
-                    if (matchesGrupo && matchesCountry && matchesType) {
+                    
+                    if (matchesGrupo) {
                         card.style.display = '';
                     } else {
                         card.style.display = 'none';
                     }
                 });
 
-                updateURL();
+                // Update URL with only grupo parameter
+                const url = new URL(window.location);
+                if (selectedGrupo) {
+                    url.searchParams.set('grupo', selectedGrupo);
+                } else {
+                    url.searchParams.delete('grupo');
+                }
+                history.replaceState(null, '', url);
             }
 
             grupoSelect.addEventListener('change', filterCards);
-            countrySelect.addEventListener('change', filterCards);
-            contentTypeSelect.addEventListener('change', filterCards);
             
-            if (initialGrupo || initialCountry || initialType) {
+            if (initialGrupo) {
                 filterCards();
             }
 

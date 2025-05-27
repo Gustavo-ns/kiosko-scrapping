@@ -71,12 +71,18 @@ class MeltwaterController {
             // Obtener datos de la API
             $documents = $this->fetchMeltwaterData($apiUrl, $apiKey);
             
-            // Actualizar registros
+            // Actualizar registros de Meltwater
             $updatedCount = $this->model->updateMeltwaterDocuments($documents);
+
+            // Ejecutar el scraper de covers
+            require_once __DIR__ . '/../scrapers/ScraperService.php';
+            $config = require __DIR__ . '/../config/config.php';
+            $scraperService = new ScraperService($this->model->getConnection(), $config);
+            $scraperResults = $scraperService->execute();
 
             $this->sendJsonResponse([
                 'success' => true,
-                'message' => "Se actualizaron {$updatedCount} registros correctamente."
+                'message' => "Se actualizaron {$updatedCount} registros de Meltwater y se ejecutó el scraper de covers correctamente."
             ]);
 
         } catch (PDOException $e) {

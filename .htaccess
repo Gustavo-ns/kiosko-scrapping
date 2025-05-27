@@ -5,13 +5,14 @@ php_value error_reporting E_ALL
 # Redirigir todo el tráfico a través de public/index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteBase /kiosko-scrapping/
     
     # Permitir acceso directo a storage/images
     RewriteRule ^storage/images/(.*)$ storage/images/$1 [L]
 
     # Redirigir el resto a public
-    RewriteCond %{REQUEST_URI} !^/public/
-    RewriteCond %{REQUEST_URI} !^/storage/
+    RewriteCond %{REQUEST_URI} !^/kiosko-scrapping/public/
+    RewriteCond %{REQUEST_URI} !^/kiosko-scrapping/storage/
     RewriteRule ^(.*)$ public/$1 [L]
 
     # Permitir acceso directo a archivos estáticos

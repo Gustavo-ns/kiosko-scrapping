@@ -18,6 +18,10 @@ class MeltwaterModel {
         }
     }
 
+    public function getConnection() {
+        return $this->db->getConnection();
+    }
+
     public function getContentHash() {
         return $this->execute(function($pdo) {
             $stmt = $pdo->query("SELECT MAX(published_date) as last_update FROM pk_melwater");
@@ -134,6 +138,12 @@ class MeltwaterModel {
             foreach ($documents as $doc) {
                 $author_name = isset($doc['author']['name']) ? $doc['author']['name'] : 'N/A';
                 $content_image = isset($doc['content']['image']) ? $doc['content']['image'] : null;
+                
+                // Skip documents without image
+                if (!$content_image) {
+                    continue;
+                }
+                
                 $content_text = isset($doc['content']['opening_text']) ? $doc['content']['opening_text'] : '';
                 $country_code = strtolower(isset($doc['location']['country_code']) ? $doc['location']['country_code'] : 'zz');
                 $country_name = isset($country_names[$country_code]) ? $country_names[$country_code] : ucfirst($country_code);
