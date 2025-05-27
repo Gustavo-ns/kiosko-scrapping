@@ -2,139 +2,152 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-echo "<h1>Diagnóstico del Servidor</h1>";
+echo "=== Diagnóstico del Sistema ===\n\n";
 
-// Información básica de PHP
-echo "<h2>Información de PHP</h2>";
-echo "<pre>";
-echo "Versión de PHP: " . phpversion() . "\n";
-echo "display_errors: " . ini_get('display_errors') . "\n";
-echo "error_reporting: " . ini_get('error_reporting') . "\n";
-echo "</pre>";
+// 1. Verificar archivo de configuración
+echo "1. Archivo de Configuración\n";
+echo "-------------------------\n";
+$configFile = __DIR__ . '/app/config/config.php';
+if (file_exists($configFile)) {
+    echo "[✓] Archivo config.php encontrado\n";
+    $config = require $configFile;
+    if (isset($config['db'])) {
+        echo "[✓] Configuración de base de datos presente\n";
+        echo "Host: " . $config['db']['host'] . "\n";
+        echo "Base de datos: " . $config['db']['name'] . "\n";
+        echo "Usuario: " . $config['db']['user'] . "\n";
+        echo "Charset: " . $config['db']['charset'] . "\n";
+    } else {
+        echo "[✗] Error: Configuración de base de datos no encontrada en config.php\n";
+    }
+} else {
+    echo "[✗] Error: No se encuentra el archivo config.php\n";
+}
 
-// Información del servidor
-echo "<h2>Variables del Servidor</h2>";
-echo "<pre>";
-echo "DOCUMENT_ROOT: " . $_SERVER['DOCUMENT_ROOT'] . "\n";
-echo "SCRIPT_FILENAME: " . $_SERVER['SCRIPT_FILENAME'] . "\n";
-echo "PHP_SELF: " . $_SERVER['PHP_SELF'] . "\n";
-echo "REQUEST_URI: " . $_SERVER['REQUEST_URI'] . "\n";
-echo "</pre>";
+echo "\n";
 
-// Verificar permisos de directorios importantes
-echo "<h2>Permisos de Directorios</h2>";
-echo "<pre>";
+// 2. Verificar extensiones PHP
+echo "2. Extensiones PHP\n";
+echo "-------------------------\n";
+$requiredExtensions = ['pdo', 'pdo_mysql', 'curl', 'imagick'];
+foreach ($requiredExtensions as $ext) {
+    if (extension_loaded($ext)) {
+        echo "[✓] {$ext} está instalada\n";
+    } else {
+        echo "[✗] {$ext} NO está instalada\n";
+    }
+}
+
+echo "\n";
+
+// 3. Verificar conexión a la base de datos
+echo "3. Conexión a la Base de Datos\n";
+echo "-------------------------\n";
+try {
+    $pdo = new PDO(
+        "mysql:host=localhost;dbname=kiosko;charset=utf8mb4",
+        "root",
+        "root",
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+    echo "[✓] Conexión exitosa a la base de datos\n";
+
+    // Verificar tabla covers
+    $stmt = $pdo->query("SHOW TABLES LIKE 'covers'");
+    if ($stmt->rowCount() > 0) {
+        echo "[✓] Tabla 'covers' existe\n";
+        
+        // Verificar estructura
+        $stmt = $pdo->query("DESCRIBE covers");
+        $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        echo "Columnas encontradas: " . implode(", ", $columns) . "\n";
+        
+        // Verificar registros
+        $stmt = $pdo->query("SELECT COUNT(*) FROM covers");
+        $count = $stmt->fetchColumn();
+        echo "Total de registros: " . $count . "\n";
+        
+        if ($count > 0) {
+            // Mostrar último registro
+            $stmt = $pdo->query("SELECT * FROM covers ORDER BY id DESC LIMIT 1");
+            $lastRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+            echo "\nÚltimo registro:\n";
+            echo "ID: " . $lastRecord['id'] . "\n";
+            echo "País: " . $lastRecord['country'] . "\n";
+            echo "Título: " . $lastRecord['title'] . "\n";
+            echo "URL Imagen: " . $lastRecord['image_url'] . "\n";
+        }
+    } else {
+        echo "[✗] La tabla 'covers' no existe\n";
+    }
+} catch (PDOException $e) {
+    echo "[✗] Error de conexión: " . $e->getMessage() . "\n";
+}
+
+echo "\n";
+
+// 4. Verificar directorios
+echo "4. Directorios\n";
+echo "-------------------------\n";
 $directories = [
-    '.' => getcwd(),
-    '../' => dirname(getcwd()),
-    '../app' => dirname(getcwd()) . '/app',
-    '../app/config' => dirname(getcwd()) . '/app/config',
-    'assets' => getcwd() . '/assets',
-    'assets/css' => getcwd() . '/assets/css'
+    'storage/images' => __DIR__ . '/storage/images',
+    'logs' => __DIR__ . '/logs'
 ];
 
 foreach ($directories as $name => $path) {
-    echo "$name: ";
-    if (file_exists($path)) {
-        echo "Existe - Permisos: " . decoct(fileperms($path) & 0777) . "\n";
+    if (is_dir($path)) {
+        echo "[✓] Directorio '{$name}' existe\n";
+        if (is_writable($path)) {
+            echo "[✓] Directorio '{$name}' tiene permisos de escritura\n";
+        } else {
+            echo "[✗] Directorio '{$name}' NO tiene permisos de escritura\n";
+        }
     } else {
-        echo "No existe\n";
+        echo "[✗] Directorio '{$name}' NO existe\n";
     }
 }
-echo "</pre>";
 
-// Verificar archivos de configuración
-echo "<h2>Archivos de Configuración</h2>";
-echo "<pre>";
-$config_files = [
-    '../app/config/config.php',
-    '../app/config/bootstrap.php',
-    '../app/config/cache_config.php',
-    '.htaccess',
-    '../.htaccess'
+echo "\n";
+
+// 5. Verificar logs
+echo "5. Archivos de Log\n";
+echo "-------------------------\n";
+$logFiles = [
+    'scrape_errors.log' => __DIR__ . '/logs/scrape_errors.log',
+    'php_errors.log' => __DIR__ . '/logs/php_errors.log',
+    'cron.log' => __DIR__ . '/logs/cron_' . date('Y-m-d') . '.log'
 ];
 
-foreach ($config_files as $file) {
-    echo "$file: ";
-    if (file_exists($file)) {
-        echo "Existe - Permisos: " . decoct(fileperms($file) & 0777) . "\n";
-        if ($file === '../app/config/config.php') {
-            echo "Contenido de config.php:\n";
-            $config_content = file_get_contents(dirname(__DIR__) . '/app/config/config.php');
-            echo htmlspecialchars($config_content) . "\n";
+foreach ($logFiles as $name => $path) {
+    if (file_exists($path)) {
+        echo "[✓] {$name} existe\n";
+        $size = filesize($path);
+        echo "Tamaño: " . round($size / 1024, 2) . " KB\n";
+        if ($size > 0) {
+            echo "Últimas líneas:\n";
+            $lines = array_slice(file($path), -5);
+            echo implode("", $lines) . "\n";
         }
     } else {
-        echo "No existe\n";
+        echo "[i] {$name} no existe (podría crearse cuando sea necesario)\n";
     }
 }
-echo "</pre>";
 
-// Verificar extensiones requeridas
-echo "<h2>Extensiones PHP</h2>";
-echo "<pre>";
-$required_extensions = ['pdo', 'pdo_mysql', 'gd', 'curl'];
-foreach ($required_extensions as $ext) {
-    echo "$ext: " . (extension_loaded($ext) ? "Cargada" : "No cargada") . "\n";
-}
-echo "</pre>";
-
-// Verificar conexión a la base de datos
-echo "<h2>Prueba de Conexión a la Base de Datos</h2>";
-echo "<pre>";
-try {
-    // Cargar la configuración
-    $config_file = dirname(__DIR__) . '/app/config/config.php';
-    if (!file_exists($config_file)) {
-        throw new Exception("El archivo config.php no existe");
-    }
-
-    // Cargar la configuración y verificar que sea un array
-    $cfg = @include $config_file;
-    if ($cfg === false) {
-        throw new Exception("Error al cargar el archivo config.php");
-    }
-    if (!is_array($cfg)) {
-        throw new Exception("El archivo config.php no devuelve un array");
-    }
-    
-    echo "Configuración cargada:\n";
-    var_export($cfg);
-    echo "\n\n";
-
-    if (!isset($cfg['db'])) {
-        throw new Exception("La configuración de la base de datos no está definida");
-    }
-
-    // Verificar que todos los parámetros necesarios estén presentes
-    $required_params = ['host', 'name', 'user', 'pass', 'charset'];
-    foreach ($required_params as $param) {
-        if (!isset($cfg['db'][$param])) {
-            throw new Exception("Falta el parámetro '$param' en la configuración de la base de datos");
+// 6. Verificar configuración de scraping
+echo "\n6. Configuración de Scraping\n";
+echo "-------------------------\n";
+$configFile = __DIR__ . '/app/config/config.php';
+if (file_exists($configFile)) {
+    $config = require $configFile;
+    if (isset($config['sites'])) {
+        echo "[✓] Configuración de sitios presente\n";
+        echo "Total de países configurados: " . count($config['sites']) . "\n";
+        foreach ($config['sites'] as $country => $sites) {
+            echo "- {$country}: " . count($sites) . " sitios\n";
         }
+    } else {
+        echo "[✗] No se encontró la configuración de sitios\n";
     }
-
-    // Intentar conexión
-    $dsn = "mysql:host={$cfg['db']['host']};dbname={$cfg['db']['name']};charset={$cfg['db']['charset']}";
-    echo "DSN: " . $dsn . "\n";
-    
-    $pdo = new PDO(
-        $dsn,
-        $cfg['db']['user'],
-        $cfg['db']['pass'],
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-        ]
-    );
-    echo "Conexión exitosa a la base de datos\n";
-    
-    // Probar una consulta simple
-    $stmt = $pdo->query("SELECT VERSION() as version");
-    $result = $stmt->fetch();
-    echo "Versión de MySQL: " . $result['version'] . "\n";
-    
-} catch (Exception $e) {
-    echo "Error de conexión: " . $e->getMessage() . "\n";
-    echo "Traza del error:\n" . $e->getTraceAsString() . "\n";
-}
-echo "</pre>"; 
+} else {
+    echo "[✗] No se puede acceder al archivo de configuración\n";
+} 

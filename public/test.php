@@ -2,8 +2,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-echo "<h1>Test de Public</h1>";
-echo "<p>Si puedes ver esto, el acceso al directorio public está funcionando.</p>";
+echo "<h1>Test de Acceso</h1>";
+echo "<p>Si puedes ver esto, el PHP está funcionando correctamente.</p>";
 echo "<hr>";
 echo "<h2>Información del Servidor:</h2>";
 echo "<pre>";
@@ -14,12 +14,5 @@ echo "DOCUMENT_ROOT: " . $_SERVER['DOCUMENT_ROOT'] . "\n";
 echo "Directorio Actual: " . getcwd() . "\n";
 echo "</pre>";
 echo "<hr>";
-echo "<h2>Prueba de .htaccess:</h2>";
-echo "<p>Contenido del .htaccess:</p>";
-echo "<pre>";
-if (file_exists('.htaccess')) {
-    echo htmlspecialchars(file_get_contents('.htaccess'));
-} else {
-    echo "No se encontró el archivo .htaccess";
-}
-echo "</pre>"; 
+echo "<h2>Prueba de mod_rewrite:</h2>";
+echo "<p>mod_rewrite está " . (function_exists('apache_get_modules') && in_array('mod_rewrite', apache_get_modules()) ? 'habilitado' : 'no se puede determinar') . "</p>"; 
