@@ -50,63 +50,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function loadCovers() {
     const country = countrySelect.value;
-    updateURL(country);
-    const apiUrl = country
-      ? `api.php?country=${encodeURIComponent(country)}`
-      : 'api.php';
-      
-    gallery.innerHTML = '<div class="loader" id="cargandoLoader"></div>';
+    const apiUrl = country ? `/api/covers?country=${encodeURIComponent(country)}` : '/api/covers';
+    
+    gallery.innerHTML = '<p>Cargando portadas...</p>';
     
     fetch(apiUrl)
-      .then(res => res.json())
+      .then(response => response.json())
       .then(data => {
         gallery.innerHTML = '';
         data.forEach((item, index) => {
           const card = document.createElement('div');
           card.className = 'card';
-
-          const link = document.createElement('a');
-          link.href = item.source || '#';
-          link.target = '_blank';
-
-          const wrapper = document.createElement('div');
-          wrapper.style.position = 'relative';
-
+          
           const img = document.createElement('img');
           img.src = item.image_url;
           img.alt = item.title;
-          img.width = 325;
-          img.height = 500;
+          img.loading = index < 6 ? 'eager' : 'lazy';
           
-          // ⚡️ Establecer fetchpriority=high solo para la primera imagen
-          if (index === 0) {
-            img.setAttribute('fetchpriority', 'high');
-          }
-
-          img.onload = () => {
-            img.classList.add('loaded');
-            skeleton.remove();
-          };
-
-          const skeleton = document.createElement('div');
-          skeleton.className = 'skeleton';
-
-          // Agregar lupa
-          const zoomIcon = document.createElement('div');
-          zoomIcon.className = 'zoom-icon';
-          zoomIcon.innerHTML = '🔍';
-          zoomIcon.title = 'Ver imagen original';
-          zoomIcon.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            showModal(item.original_link || item.image_url);
-          });
-
-          wrapper.appendChild(img);
-          wrapper.appendChild(skeleton);
-          wrapper.appendChild(zoomIcon);
-          link.appendChild(wrapper);
-          card.appendChild(link);
+          const a = document.createElement('a');
+          a.href = item.original_link;
+          a.target = '_blank';
+          a.appendChild(img);
+          card.appendChild(a);
 
           const info = document.createElement('div');
           info.className = 'info';
@@ -142,8 +107,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   countrySelect.addEventListener('change', loadCovers);
   refreshBtn.addEventListener('click', () => {
-    // Opcional: llamar al scraper en el servidor
-    fetch('scrape.php').then(() => loadCovers());
+    gallery.innerHTML = '<p>Actualizando portadas...</p>';
+    // Llamar al endpoint de actualización
+    fetch('/update')
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          loadCovers(); // Recargar las portadas después de actualizar
+        } else {
+          gallery.innerHTML = '<p>Error al actualizar: ' + (data.message || 'Error desconocido') + '</p>';
+        }
+      })
+      .catch(err => {
+        console.error('Error al actualizar:', err);
+        gallery.innerHTML = '<p>Error al actualizar las portadas.</p>';
+      });
   });
 
   // Carga inicial
