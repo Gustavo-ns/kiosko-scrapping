@@ -44,9 +44,12 @@ echo "\n";
 echo "3. Conexión a la Base de Datos\n";
 echo "-------------------------\n";
 try {
-    require_once __DIR__ . '/app/config/DatabaseConnection.php';
-    $db = DatabaseConnection::getInstance();
-    $pdo = $db->getConnection();
+    $pdo = new PDO(
+        "mysql:host=localhost;dbname=kiosko;charset=utf8mb4",
+        "root",
+        "root",
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
     echo "[✓] Conexión exitosa a la base de datos\n";
 
     // Verificar tabla covers
