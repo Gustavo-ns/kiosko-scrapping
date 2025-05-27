@@ -1,315 +1,384 @@
 <?php
-// scrape.php
+// Configuración de errores
+ini_set('display_errors', 1);
+ini_set('error_reporting', E_ALL);
 
-ini_set('display_errors', '0');
-ini_set('log_errors', '1');
-ini_set('error_log', __DIR__ . '/scrape_errors.log'); // Log a archivo
-error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+// Intentar diferentes rutas para encontrar el archivo de configuración
+$possiblePaths = [
+    dirname(__DIR__) . '/config.php',                    // Ruta relativa estándar
+    dirname(__DIR__) . '/scrapers/config.php',          // En directorio scrapers
+    dirname(__DIR__) . '/app/config.php',               // En directorio app
+    dirname(__DIR__) . '/config/config.php',            // En directorio config
+    __DIR__ . '/../config.php',                         // Ruta relativa alternativa
+    __DIR__ . '/config.php',                            // En directorio public
+    realpath(dirname(__DIR__)) . '/config.php',         // Ruta real absoluta
+    '/home2/eyewatch/public_html/website_6c3be7ed/config.php'  // Ruta absoluta específica
+];
 
-set_error_handler(function ($severity, $message) {
-    if (
-        $severity === E_DEPRECATED
-        && (strpos($message, 'strtolower(): Passing null') !== false
-            || strpos($message, 'Return type of Symfony\\Component\\DomCrawler\\Crawler::getIterator') !== false)
-    ) {
-        return true;
+$configFile = null;
+foreach ($possiblePaths as $path) {
+    echo "Buscando configuración en: {$path}\n";
+    if (file_exists($path)) {
+        $configFile = $path;
+        echo "¡Archivo de configuración encontrado en: {$path}!\n";
+        break;
     }
-    return false;
-}, E_DEPRECATED);
-
-ob_start();
-
-$start = microtime(true);
-echo "\nScraping iniciado a las " . date('H:i:s') . ".\n";
-
-// Validar autoload de Composer
-if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
-    die("Falta vendor/autoload.php. Ejecuta composer install.\n");
-}
-require 'vendor/autoload.php';
-
-// Validar Imagick
-if (!extension_loaded('imagick')) {
-    die("La extensión Imagick no está habilitada.\n");
 }
 
-$config = require 'config.php';
+if (!$configFile) {
+    echo "Error: No se pudo encontrar el archivo de configuración.\n";
+    echo "Rutas probadas:\n";
+    foreach ($possiblePaths as $path) {
+        echo "- {$path}\n";
+    }
+    
+    // Si no existe el archivo, vamos a crearlo en la ubicación principal
+    $defaultConfig = <<<'CONFIG'
+<?php
+return [
+    'db' => [
+        'host' => 'localhost',
+        'name' => 'eyewatch_newsroom',
+        'user' => 'eyewatch_newsroom',
+        'pass' => '',  // Deberás configurar la contraseña correcta
+        'charset' => 'utf8mb4'
+    ],
+    'sites' => [
+        'argentina' => [
+            [
+                'url' => 'https://es.kiosko.net/ar/',
+                'selector' => '.thcover',
+                'multiple' => true,
+                'followLinks' => [
+                    'linkSelector' => 'a',
+                    'linkImgSelector' => '.frontPageImage a',
+                    'imageSelector' => '#portada',
+                ],
+            ]
+        ]
+    ]
+];
+CONFIG;
 
-use Goutte\Client;
-use GuzzleHttp\Psr7\Uri;
-use GuzzleHttp\Client as GuzzleClient;
-
-$pdo = new PDO(
-    "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset={$config['db']['charset']}",
-    $config['db']['user'],
-    $config['db']['pass'],
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-);
-
-// Obtener la última fecha de scraping
-$stmt = $pdo->prepare("SELECT value FROM configs WHERE name = 'last_scrape_date'");
-$stmt->execute();
-$lastScrapeDate = $stmt->fetchColumn() ?: '2000-01-01';
-
-$hoy = date('Y-m-d');
-if ($lastScrapeDate !== $hoy) {
-    echo "Limpiando imágenes y reiniciando base de datos (última fecha: $lastScrapeDate)...\n";
-
-    $imagesDir = __DIR__ . '/images/';
-    if (is_dir($imagesDir)) {
-        $files = glob($imagesDir . '*');
-        foreach ($files as $file) {
-            if (is_file($file)) unlink($file);
+    $defaultConfigPath = dirname(__DIR__) . '/config.php';
+    echo "\nIntentando crear archivo de configuración en: {$defaultConfigPath}\n";
+    
+    if (@file_put_contents($defaultConfigPath, $defaultConfig)) {
+        echo "¡Archivo de configuración creado exitosamente!\n";
+        $configFile = $defaultConfigPath;
+        
+        // Verificar que el archivo se creó correctamente
+        if (!file_exists($configFile)) {
+            die("Error: El archivo se creó pero no se puede acceder a él. Verifica los permisos.\n");
         }
     } else {
-        mkdir($imagesDir, 0777, true);
-    }
-
-    $pdo->exec('TRUNCATE TABLE covers');
-
-    $update = $pdo->prepare("REPLACE INTO configs (name, value) VALUES ('last_scrape_date', :fecha)");
-    $update->execute([':fecha' => $hoy]);
-}
-
-$client = new Client();
-$guzzle = new GuzzleClient([
-    'headers' => ['User-Agent' => 'Mozilla/5.0'],
-    'timeout' => 10,
-    'connect_timeout' => 5
-]);
-
-function isValidImage($path) {
-    $info = @getimagesize($path);
-    return $info !== false && in_array($info['mime'], ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
-}
-
-function makeAbsoluteUrl($baseUrl, $relativeUrl) {
-    if (strpos($relativeUrl, '//') === 0) return 'https:' . $relativeUrl;
-    if (strpos($relativeUrl, 'http') === 0) return $relativeUrl;
-    return rtrim($baseUrl, '/') . '/' . ltrim($relativeUrl, '/');
-}
-
-function saveImageLocally($imageUrl, $country, $alt) {
-    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid() . '.jpg';
-    $savePath = __DIR__ . "/images/$filename";
-
-    $imageData = @file_get_contents($imageUrl);
-    if ($imageData === false) {
-        error_log("No se pudo descargar la imagen: $imageUrl");
-        return false;
-    }
-
-    $tempFile = tempnam(sys_get_temp_dir(), 'img_');
-    file_put_contents($tempFile, $imageData);
-
-    $info = @getimagesize($tempFile);
-    if ($info === false) {
-        error_log("Archivo no válido como imagen: $imageUrl");
-        unlink($tempFile);
-        return false;
-    }
-
-    $mime = $info['mime'];
-    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!in_array($mime, $allowedMimes)) {
-        error_log("Formato de imagen no soportado ($mime): $imageUrl");
-        unlink($tempFile);
-        return false;
-    }
-
-    try {
-        switch ($mime) {
-            case 'image/jpeg':
-                $image = imagecreatefromjpeg($tempFile);
-                imagejpeg($image, $savePath);
-                break;
-            case 'image/png':
-                $image = imagecreatefrompng($tempFile);
-                imagepng($image, $savePath);
-                break;
-            case 'image/gif':
-                $image = imagecreatefromgif($tempFile);
-                imagegif($image, $savePath);
-                break;
-            case 'image/webp':
-                if (!function_exists('imagecreatefromwebp')) throw new Exception("WebP no soportado en GD");
-                $image = imagecreatefromwebp($tempFile);
-                imagewebp($image, $savePath);
-                break;
+        echo "Error al crear el archivo de configuración. Verifica los permisos.\n";
+        echo "\nInformación del sistema:\n";
+        echo "- __DIR__: " . __DIR__ . "\n";
+        echo "- dirname(__DIR__): " . dirname(__DIR__) . "\n";
+        echo "- realpath(__DIR__): " . realpath(__DIR__) . "\n";
+        echo "- realpath(dirname(__DIR__)): " . realpath(dirname(__DIR__)) . "\n";
+        echo "- getcwd(): " . getcwd() . "\n";
+        
+        // Verificar permisos
+        echo "\nPermisos de directorios:\n";
+        echo "- " . dirname(__DIR__) . ": " . substr(sprintf('%o', fileperms(dirname(__DIR__))), -4) . "\n";
+        echo "- " . __DIR__ . ": " . substr(sprintf('%o', fileperms(__DIR__)), -4) . "\n";
+        
+        // Listar archivos en el directorio actual y el padre
+        echo "\nArchivos en el directorio actual (" . __DIR__ . "):\n";
+        foreach (glob(__DIR__ . "/*") as $file) {
+            echo "- " . basename($file) . " (" . substr(sprintf('%o', fileperms($file)), -4) . ")\n";
         }
-        imagedestroy($image);
-    } catch (Exception $e) {
-        error_log("Error procesando la imagen: $imageUrl - " . $e->getMessage());
-        unlink($tempFile);
-        return false;
-    }
-
-    unlink($tempFile);
-    return "images/$filename";
-}
-
-function storeCover($country, $alt, $urlImg, $sourceLink) {
-    global $pdo;
-    $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
-    $stmt->execute([':c' => $country, ':u' => $urlImg]);
-    if (!$stmt->fetchColumn()) {
-        $local = saveImageLocally($urlImg, $country, $alt);
-        if ($local) {
-            $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link) VALUES(:c,:t,:i,:s,:l)");
-            $ins->execute([':c' => $country, ':t' => $alt, ':i' => $local, ':s' => $sourceLink, ':l' => $urlImg]);
+        
+        echo "\nArchivos en el directorio padre (" . dirname(__DIR__) . "):\n";
+        foreach (glob(dirname(__DIR__) . "/*") as $file) {
+            echo "- " . basename($file) . " (" . substr(sprintf('%o', fileperms($file)), -4) . ")\n";
         }
+        
+        die("Por favor, crea el archivo config.php manualmente en la ubicación correcta.\n");
     }
 }
 
-function extractHiresFromFusionScript($crawler) {
-    $script = $crawler->filter('script')->reduce(function ($node) {
-        return strpos($node->text(), 'Fusion.globalContent') !== false;
-    });
-
-    if ($script->count() === 0) return null;
-
-    $content = $script->text();
-    if (preg_match('/Fusion\\.globalContent\\s*=\\s*(\{.*?\});/s', $content, $m)) {
-        $json = json_decode($m[1], true);
-        if (isset($json['data']) && isset($json['data']['hires'])) {
-            return $json['data']['hires'];
-        }
-    }
-
-    return null;
+// Verificar que tenemos una ruta válida
+if (empty($configFile) || !file_exists($configFile)) {
+    die("Error: No se pudo encontrar o crear el archivo de configuración.\n");
 }
 
-function extractWithXPath($url, $xpath, $attribute = 'href', $timeout = 5) {
-    $ch = curl_init();
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_CONNECTTIMEOUT => $timeout,
-        CURLOPT_TIMEOUT => $timeout + 2,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; scraper-bot)',
-        CURLOPT_SSL_VERIFYHOST => 0,
-        CURLOPT_SSL_VERIFYPEER => 0,
-        CURLOPT_RANGE => '0-65535',
-        CURLOPT_HTTPHEADER => ['Accept: text/html'],
-    ]);
+// Definir la ruta base del proyecto
+define('BASE_PATH', dirname($configFile));
 
-    $html = curl_exec($ch);
-    curl_close($ch);
-
-    if (!$html || strlen($html) < 100) return null;
-
-    libxml_use_internal_errors(true);
-    $dom = new DOMDocument();
-    if (!$dom->loadHTML($html)) return null;
-
-    $xpathObj = new DOMXPath($dom);
-    $nodes = $xpathObj->query($xpath);
-    if ($nodes && $nodes->length > 0) {
-        return $nodes->item(0)->getAttribute($attribute);
-    }
-
-    return null;
+// Verificar que el archivo de autoload existe
+$autoloadPath = BASE_PATH . '/vendor/autoload.php';
+if (!file_exists($autoloadPath)) {
+    die("Error: No se encuentra el archivo autoload.php. Ejecuta 'composer install' primero.\n");
 }
 
-$total = 0;
-foreach ($config['sites'] as $country => $confs) {
-    $total += count($confs);
-}
-echo "Total de sitios a scrapear: $total\n<br>";
+require_once $autoloadPath;
 
-$counter = 0;
-foreach ($config['sites'] as $country => $configs) {
-    foreach ($configs as $conf) {
-        $counter++;
-        $pct = round($counter / $total * 100);
-        echo "Procesando [$counter/$total: $pct%] {$conf['url']}\n<br>";
+use Goutte\Client;
+use GuzzleHttp\Client as GuzzleClient;
+use Symfony\Component\DomCrawler\Crawler;
+use GuzzleHttp\RequestOptions;
 
+class NewsScraper {
+    private $client;
+    private $config;
+    
+    public function __construct() {
+        global $configFile;
+        
+        $this->client = new Client();
+        $guzzleClient = new GuzzleClient([
+            'verify' => false,
+            'timeout' => 300,
+            'connect_timeout' => 30,
+            'read_timeout' => 300,
+            'http_errors' => false,
+            RequestOptions::ALLOW_REDIRECTS => [
+                'max'             => 10,
+                'strict'          => false,
+                'referer'         => true,
+                'protocols'       => ['http', 'https'],
+                'track_redirects' => true
+            ],
+            'headers' => [
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language' => 'en-US,en;q=0.5',
+                'Connection' => 'keep-alive',
+                'Upgrade-Insecure-Requests' => '1'
+            ],
+            'curl' => [
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_ENCODING => '',
+                CURLOPT_COOKIESESSION => true,
+                CURLOPT_RETURNTRANSFER => true
+            ]
+        ]);
+        
+        $this->client->setClient($guzzleClient);
+        
         try {
-            $crawler = $client->request('GET', $conf['url']);
-            $urlImg = '';
-            $alt = 'Portada';
-            $fullUri = $conf['url'];
-
-            if (!empty($conf['custom_extractor'])) {
-                switch ($conf['custom_extractor']) {
-                    case 'extractWithXPath':
-                        $xpath = isset($conf['xpath']) ? $conf['xpath'] : '//img';
-                        $attr = isset($conf['attribute']) ? $conf['attribute'] : 'src';
-                        $urlImg = extractWithXPath($conf['url'], $xpath, $attr);
-                        if ($urlImg) $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
-                        break;
-                    case 'extractHiresFromFusionScript':
-                        $hiresUrl = extractHiresFromFusionScript($crawler);
-                        if ($hiresUrl) $urlImg = makeAbsoluteUrl($conf['url'], $hiresUrl);
-                        break;
-                }
-                if ($urlImg) storeCover($country, $alt, $urlImg, $fullUri);
-                continue;
+            if (!is_readable($configFile)) {
+                throw new \Exception("El archivo de configuración no es legible: {$configFile}");
             }
-
-            if (!empty($conf['attribute']) && !empty($conf['selector'])) {
-                $node = $crawler->filter($conf['selector']);
-                if ($node->count()) {
-                    $urlImg = makeAbsoluteUrl($conf['url'], $node->attr($conf['attribute']));
-                } else {
+            
+            $this->config = require $configFile;
+            if (!is_array($this->config)) {
+                throw new \Exception("El archivo de configuración no devuelve un array");
+            }
+            if (!isset($this->config['sites'])) {
+                throw new \Exception("La configuración no contiene la sección 'sites'");
+            }
+        } catch (\Exception $e) {
+            die("Error cargando configuración: " . $e->getMessage() . "\n");
+        }
+    }
+    
+    private function checkResponse($crawler, $url) {
+        if (!$crawler) {
+            throw new \Exception("No se pudo obtener respuesta de {$url}");
+        }
+        
+        // Verificar si hay contenido
+        $content = $crawler->html();
+        if (empty($content)) {
+            throw new \Exception("No se recibió contenido de {$url}");
+        }
+        
+        return true;
+    }
+    
+    public function scrape($country = 'argentina') {
+        if (!isset($this->config['sites'][$country])) {
+            echo "País no encontrado en la configuración: {$country}\n";
+            return;
+        }
+        $sites = $this->config['sites'][$country];
+        
+        foreach ($sites as $site) {
+            try {
+                echo "\nProcesando {$site['url']}\n";
+                
+                // Verificar URL antes de procesar
+                if (!filter_var($site['url'], FILTER_VALIDATE_URL)) {
+                    throw new \Exception("URL inválida: {$site['url']}");
+                }
+                
+                $crawler = $this->client->request('GET', $site['url']);
+                
+                // Verificar respuesta
+                $this->checkResponse($crawler, $site['url']);
+                
+                echo "Buscando portadas con selector: {$site['selector']}\n";
+                
+                $covers = $crawler->filter($site['selector']);
+                if ($covers->count() === 0) {
+                    echo "No se encontraron portadas en {$site['url']}\n";
                     continue;
                 }
-            } elseif (!empty($conf['selector']) && empty($conf['multiple'])) {
-                $node = $crawler->filter($conf['selector']);
-                if ($node->count()) {
-                    $img = $node->attr('src') ?: '';
-                    $alt = $node->attr('alt') ?: $alt;
-                    $urlImg = makeAbsoluteUrl($conf['url'], $img);
-                } else {
-                    continue;
-                }
-            } elseif (!empty($conf['multiple'])) {
-                $crawler->filter($conf['selector'])->each(function ($node) use ($conf, $country, $pdo, $client) {
-                    $base = new Uri($conf['url']);
-                    $urlImg = '';
-                    $linkPage = $conf['url'];
-                    $alt = 'Portada';
-
-                    if (!empty($conf['followLinks'])) {
-                        $linkNode = $node->filter($conf['followLinks']['linkSelector']);
-                        if ($linkNode->count()) {
-                            $link = $linkNode->attr('href') ?: '';
-                            $full = Uri::resolve($base, new Uri($link));
-                            $detail = $client->request('GET', (string)$full);
-                            $imgNode = $detail->filter($conf['followLinks']['imageSelector']);
-                            if ($imgNode->count()) {
-                                $img = $imgNode->attr('src') ?: '';
-                                $alt = $node->filter('img')->attr('alt') ?: 'Portada';
-                                $urlImg = makeAbsoluteUrl((string)$full, $img);
-                                $linkPage = $full;
+                
+                echo "Encontradas {$covers->count()} portadas\n";
+                
+                $covers->each(function (Crawler $node) use ($site) {
+                    try {
+                        if (isset($site['followLinks'])) {
+                            // Intentar obtener el enlace
+                            try {
+                                $link = $node->filter($site['followLinks']['linkSelector'])->link();
+                            } catch (\Exception $e) {
+                                throw new \Exception("No se pudo obtener el enlace: " . $e->getMessage());
+                            }
+                            
+                            $detailUrl = $link->getUri();
+                            echo "\nSiguiendo enlace: {$detailUrl}\n";
+                            
+                            // Visitar la página de detalle con reintento
+                            $maxRetries = 3;
+                            $retry = 0;
+                            $detailCrawler = null;
+                            
+                            while ($retry < $maxRetries) {
+                                try {
+                                    $detailCrawler = $this->client->click($link);
+                                    if ($this->checkResponse($detailCrawler, $detailUrl)) {
+                                        break;
+                                    }
+                                } catch (\Exception $e) {
+                                    $retry++;
+                                    if ($retry >= $maxRetries) {
+                                        throw $e;
+                                    }
+                                    echo "Reintento {$retry} de {$maxRetries}...\n";
+                                    sleep(2);
+                                }
+                            }
+                            
+                            if (!$detailCrawler) {
+                                throw new \Exception("No se pudo acceder a la página de detalle después de {$maxRetries} intentos");
+                            }
+                            
+                            // En la página de detalle, buscar el enlace a la imagen completa
+                            if (isset($site['followLinks']['linkImgSelector'])) {
+                                try {
+                                    $fullImageLink = $detailCrawler->filter($site['followLinks']['linkImgSelector'])->link();
+                                    $fullImagePage = $this->client->click($fullImageLink);
+                                    
+                                    // Verificar respuesta
+                                    $this->checkResponse($fullImagePage, $fullImageLink->getUri());
+                                    
+                                    // Obtener la imagen final
+                                    $imageUrl = $fullImagePage->filter($site['followLinks']['imageSelector'])->attr('src');
+                                    
+                                    if (empty($imageUrl)) {
+                                        throw new \Exception("URL de imagen vacía");
+                                    }
+                                    
+                                    // Asegurarse de que la URL de la imagen es absoluta
+                                    if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                                        $imageUrl = $this->makeAbsoluteUrl($imageUrl, $fullImageLink->getUri());
+                                    }
+                                    
+                                    // Extraer el título/nombre del periódico
+                                    $title = $node->attr('title');
+                                    if (empty($title)) {
+                                        $title = $node->attr('alt');
+                                    }
+                                    if (empty($title)) {
+                                        $title = basename($imageUrl);
+                                    }
+                                    
+                                    echo "Imagen encontrada: {$imageUrl}\n";
+                                    echo "Título: {$title}\n";
+                                    echo "------------------------\n";
+                                    
+                                    $this->saveImage($imageUrl, $title, $country);
+                                    
+                                } catch (\Exception $e) {
+                                    throw new \Exception("Error procesando imagen: " . $e->getMessage());
+                                }
                             }
                         }
-                    } else {
-                        $imgNode = $node->filter('img');
-                        if ($imgNode->count()) {
-                            $img = $imgNode->attr('src') ?: '';
-                            $alt = $imgNode->attr('alt') ?: 'Portada';
-                            $urlImg = makeAbsoluteUrl($conf['url'], $img);
-                        }
-                    }
-
-                    if ($urlImg) {
-                        storeCover($country, $alt, $urlImg, $linkPage);
+                    } catch (\Exception $e) {
+                        echo "Error procesando portada: " . $e->getMessage() . "\n";
                     }
                 });
-                continue;
+            } catch (\Exception $e) {
+                echo "Error procesando sitio {$site['url']}: " . $e->getMessage() . "\n";
             }
-
-            if ($urlImg) {
-                storeCover($country, $alt, $urlImg, $fullUri);
+        }
+    }
+    
+    private function makeAbsoluteUrl($relativeUrl, $baseUrl) {
+        if (parse_url($relativeUrl, PHP_URL_SCHEME) !== null) {
+            return $relativeUrl;
+        }
+        
+        $baseParts = parse_url($baseUrl);
+        if ($relativeUrl[0] === '/') {
+            return $baseParts['scheme'] . '://' . $baseParts['host'] . $relativeUrl;
+        }
+        
+        $path = isset($baseParts['path']) ? dirname($baseParts['path']) : '/';
+        return $baseParts['scheme'] . '://' . $baseParts['host'] . $path . '/' . $relativeUrl;
+    }
+    
+    private function saveImage($url, $title, $country) {
+        try {
+            // Configurar contexto para la descarga
+            $context = stream_context_create([
+                'http' => [
+                    'timeout' => 300,
+                    'header' => [
+                        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                        'Accept: image/webp,image/*,*/*;q=0.8',
+                        'Accept-Language: en-US,en;q=0.5',
+                    ]
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                ]
+            ]);
+            
+            $imageData = file_get_contents($url, false, $context);
+            if ($imageData === false) {
+                throw new \Exception("No se pudo descargar la imagen");
             }
-        } catch (Exception $e) {
-            error_log("Error en {$conf['url']}: " . $e->getMessage());
-            continue;
+            
+            // Crear directorio si no existe
+            $directory = dirname(__DIR__) . "/images/{$country}/" . date('Y-m-d');
+            if (!is_dir($directory)) {
+                mkdir($directory, 0777, true);
+            }
+            
+            // Generar nombre de archivo seguro
+            $filename = $directory . '/' . preg_replace('/[^a-zA-Z0-9]/', '_', $title) . '.jpg';
+            
+            // Guardar imagen
+            if (file_put_contents($filename, $imageData)) {
+                echo "Imagen guardada: {$filename}\n";
+            } else {
+                echo "Error al guardar la imagen: {$filename}\n";
+            }
+        } catch (\Exception $e) {
+            echo "Error guardando imagen: " . $e->getMessage() . "\n";
         }
     }
 }
 
-$end = microtime(true);
-echo "\nScraping finalizado a las " . date('H:i:s') . ". Duración: " . round($end - $start, 2) . "s\n";
+// Configurar límites de memoria y tiempo
+ini_set('memory_limit', '512M');
+ini_set('max_execution_time', 300);
+
+// Ejecutar el scraper
+try {
+    $scraper = new NewsScraper();
+    $scraper->scrape('argentina');
+} catch (\Exception $e) {
+    echo "Error general: " . $e->getMessage() . "\n";
+}

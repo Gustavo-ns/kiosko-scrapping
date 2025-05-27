@@ -1,54 +1,45 @@
 <?php
+
 class DatabaseConnection {
     private static $instance = null;
-    private $connection = null;
+    private $connection;
     private $config;
 
     private function __construct() {
-        $this->config = require __DIR__ . '/config.php';
-        $this->connect();
-    }
-
-    private function connect() {
-        // Si ya hay una conexión, intentar cerrarla primero
-        if ($this->connection !== null) {
-            $this->connection = null;
+        // Cargar configuración
+        $configFile = dirname(dirname(__DIR__)) . '/config.php';
+        if (!file_exists($configFile)) {
+            throw new Exception("Archivo de configuración no encontrado");
+        }
+        
+        $this->config = require $configFile;
+        
+        if (!isset($this->config['db'])) {
+            throw new Exception("Configuración de base de datos no encontrada");
         }
 
+        $dbConfig = $this->config['db'];
+
         try {
-            $this->connection = new PDO(
-                "mysql:host={$this->config['db']['host']};dbname={$this->config['db']['name']};charset={$this->config['db']['charset']}",
-                $this->config['db']['user'],
-                $this->config['db']['pass'],
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    // Establecer un tiempo de espera más corto
-                    PDO::ATTR_TIMEOUT => 5,
-                    // Cerrar la conexión cuando se complete la transacción
-                    PDO::ATTR_PERSISTENT => false
-                ]
+            $dsn = sprintf(
+                "mysql:host=%s;dbname=%s;charset=%s",
+                $dbConfig['host'],
+                $dbConfig['name'],
+                $dbConfig['charset']
             );
 
-            // Establecer un tiempo máximo de espera para consultas
-            $this->connection->setAttribute(PDO::ATTR_TIMEOUT, 5);
-            
-            // Configurar el modo de transacción
-            $this->connection->setAttribute(PDO::ATTR_AUTOCOMMIT, true);
-        } catch (PDOException $e) {
-            // Si falla la conexión, esperar un momento y reintentar una vez
-            sleep(1);
             $this->connection = new PDO(
-                "mysql:host={$this->config['db']['host']};dbname={$this->config['db']['name']};charset={$this->config['db']['charset']}",
-                $this->config['db']['user'],
-                $this->config['db']['pass'],
+                $dsn,
+                $dbConfig['user'],
+                $dbConfig['pass'],
                 [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_TIMEOUT => 5,
-                    PDO::ATTR_PERSISTENT => false
+                    PDO::ATTR_EMULATE_PREPARES => false,
                 ]
             );
+        } catch (PDOException $e) {
+            throw new Exception("Error de conexión a la base de datos: " . $e->getMessage());
         }
     }
 
@@ -60,33 +51,14 @@ class DatabaseConnection {
     }
 
     public function getConnection() {
-        if (!$this->connection || !$this->isConnected()) {
-            $this->connect();
-        }
         return $this->connection;
-    }
-
-    private function isConnected() {
-        try {
-            return $this->connection && $this->connection->query('SELECT 1');
-        } catch (PDOException $e) {
-            return false;
-        }
-    }
-
-    public function closeConnection() {
-        if ($this->connection) {
-            $this->connection = null;
-        }
-    }
-
-    public function __destruct() {
-        $this->closeConnection();
     }
 
     // Prevenir la clonación del objeto
     private function __clone() {}
 
     // Prevenir la deserialización
-    private function __wakeup() {}
+    public function __wakeup() {
+        throw new Exception("Cannot unserialize singleton");
+    }
 } 
