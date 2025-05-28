@@ -78,74 +78,123 @@ $guzzle = new GuzzleClient([
     'connect_timeout' => 5
 ]);
 
-function isValidImage($path) {
-    $info = @getimagesize($path);
-    return $info !== false && in_array($info['mime'], ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
-}
+function checkImageMagickSupport() {
+    if (!extension_loaded('imagick')) {
+        error_log("La extensión Imagick no está instalada");
+        return false;
+    }
 
-function makeAbsoluteUrl($baseUrl, $relativeUrl) {
-    if (strpos($relativeUrl, '//') === 0) return 'https:' . $relativeUrl;
-    if (strpos($relativeUrl, 'http') === 0) return $relativeUrl;
-    return rtrim($baseUrl, '/') . '/' . ltrim($relativeUrl, '/');
+    $formats = Imagick::queryFormats();
+    error_log("Formatos soportados por ImageMagick: " . implode(", ", $formats));
+    
+    if (!in_array('WEBP', $formats)) {
+        error_log("ADVERTENCIA: El formato WebP no está soportado por ImageMagick");
+    }
+    
+    return true;
 }
 
 function saveImageLocally($imageUrl, $country, $alt) {
-    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid() . '.webp';
+    static $checkedSupport = false;
+    if (!$checkedSupport) {
+        checkImageMagickSupport();
+        $checkedSupport = true;
+    }
+
+    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid();
     $savePath = __DIR__ . "/images/$filename";
 
-    $imageData = @file_get_contents($imageUrl);
-    if ($imageData === false) {
-        error_log("No se pudo descargar la imagen: $imageUrl");
+    // Usar Guzzle para la descarga con timeout y manejo de errores
+    global $guzzle;
+    try {
+        $response = $guzzle->get($imageUrl);
+        $imageData = $response->getBody()->getContents();
+    } catch (Exception $e) {
+        error_log("No se pudo descargar la imagen: $imageUrl - " . $e->getMessage());
         return false;
     }
 
     $tempFile = tempnam(sys_get_temp_dir(), 'img_');
     file_put_contents($tempFile, $imageData);
 
-    $info = @getimagesize($tempFile);
-    if ($info === false) {
-        error_log("Archivo no válido como imagen: $imageUrl");
-        unlink($tempFile);
-        return false;
-    }
-
-    $mime = $info['mime'];
-    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!in_array($mime, $allowedMimes)) {
-        error_log("Formato de imagen no soportado ($mime): $imageUrl");
-        unlink($tempFile);
-        return false;
-    }
-
     try {
-        // Crear objeto Imagick
-        $imagick = new Imagick($tempFile);
-        $imagick->setImageFormat('webp');
+        // Verificar que el archivo sea una imagen válida
+        $info = @getimagesize($tempFile);
+        if ($info === false) {
+            throw new Exception("Archivo no válido como imagen");
+        }
+
+        $mime = $info['mime'];
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!in_array($mime, $allowedMimes)) {
+            throw new Exception("Formato de imagen no soportado ($mime)");
+        }
+
+        // Crear objeto Imagick con manejo de errores específico
+        $imagick = new Imagick();
         
-        // Configurar calidad y compresión
+        // Establecer límites de memoria y tiempo
+        $imagick->setResourceLimit(Imagick::RESOURCETYPE_MEMORY, 256 * 1024 * 1024); // 256MB
+        $imagick->setResourceLimit(Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024); // 256MB
+        
+        // Cargar la imagen
+        $imagick->readImage($tempFile);
+        
+        // Verificar si la imagen se cargó correctamente
+        if (!$imagick->valid()) {
+            throw new Exception("La imagen no es válida después de cargarla");
+        }
+
+        // Convertir a RGB si es CMYK
+        if ($imagick->getImageColorspace() === Imagick::COLORSPACE_CMYK) {
+            $imagick->transformImageColorspace(Imagick::COLORSPACE_SRGB);
+        }
+
+        // Eliminar perfiles de color y metadatos para reducir tamaño
+        $imagick->stripImage();
+        
+        // Usar JPEG por defecto ya que WebP no está soportado
+        $imagick->setImageFormat('jpeg');
         $imagick->setImageCompressionQuality(85);
-        $imagick->setOption('webp:lossless', 'false');
-        $imagick->setOption('webp:method', '6');
+        $finalPath = $savePath . '.jpg';
         
-        // Redimensionar manteniendo proporción si es necesario
+        // Redimensionar si es necesario
         $width = $imagick->getImageWidth();
         $height = $imagick->getImageHeight();
         
-        // Redimensionar a 325x500 manteniendo proporción
-        $imagick->resizeImage(325, 500, Imagick::FILTER_LANCZOS, 1, true);
+        if ($width > 325 || $height > 500) {
+            $imagick->resizeImage(325, 500, Imagick::FILTER_LANCZOS, 1, true);
+        }
         
-        // Guardar imagen
-        $imagick->writeImage($savePath);
+        // Optimizar memoria antes de guardar
+        $imagick->optimizeImageLayers();
+        
+        // Intentar guardar la imagen
+        if (!$imagick->writeImage($finalPath)) {
+            throw new Exception("No se pudo guardar la imagen");
+        }
+        
+        // Verificar que el archivo se guardó correctamente
+        if (!file_exists($finalPath) || filesize($finalPath) < 1024) {
+            throw new Exception("El archivo guardado no es válido");
+        }
         
         // Limpiar
         $imagick->clear();
+        $imagick->destroy();
         unlink($tempFile);
         
-        return "images/$filename";
+        return "images/" . basename($finalPath);
+        
+    } catch (ImagickException $e) {
+        error_log("Error de Imagick procesando la imagen: $imageUrl - " . $e->getMessage());
+        if (file_exists($tempFile)) unlink($tempFile);
+        if (isset($finalPath) && file_exists($finalPath)) unlink($finalPath);
+        return false;
     } catch (Exception $e) {
         error_log("Error procesando la imagen: $imageUrl - " . $e->getMessage());
         if (file_exists($tempFile)) unlink($tempFile);
-        if (file_exists($savePath)) unlink($savePath);
+        if (isset($finalPath) && file_exists($finalPath)) unlink($finalPath);
         return false;
     }
 }
@@ -179,13 +228,13 @@ function extractHiresFromFusionScript($crawler) {
     $content = $script->text();
     if (preg_match('/Fusion\\.globalContent\\s*=\\s*(\{.*?\});/s', $content, $m)) {
         $json = json_decode($m[1], true);
-        return $json['data']['hires'] ?? null;
+        return isset($json['data']['hires']) ? $json['data']['hires'] : null;
     }
 
     return null;
 }
 
-function extractWithXPath(string $url, string $xpath, string $attribute = 'href', int $timeout = 5): ?string {
+function extractWithXPath($url, $xpath, $attribute = 'href', $timeout = 5) {
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL => $url,
@@ -216,6 +265,17 @@ function extractWithXPath(string $url, string $xpath, string $attribute = 'href'
     }
 
     return null;
+}
+
+function makeAbsoluteUrl($baseUrl, $relativeUrl) {
+    if (strpos($relativeUrl, '//') === 0) return 'https:' . $relativeUrl;
+    if (strpos($relativeUrl, 'http') === 0) return $relativeUrl;
+    return rtrim($baseUrl, '/') . '/' . ltrim($relativeUrl, '/');
+}
+
+function isValidImage($path) {
+    $info = @getimagesize($path);
+    return $info !== false && in_array($info['mime'], ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 }
 
 $total = 0;
