@@ -1,10 +1,38 @@
-# Composer
-/vendor/
-composer.lock
+# Environment files
+.env
+.env.backup
 
-# Archivos del sistema operativo
+# Dependencies
+/vendor/
+/node_modules/
+
+# Generated files
+/public/assets/images/*
+!/public/assets/images/.gitkeep
+/logs/*
+!/logs/.gitkeep
+*.log
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
 .DS_Store
 Thumbs.db
+
+# Cache
+*.cache
+.php_cs.cache
+
+# Testing
+/phpunit.xml
+.phpunit.result.cache
+
+# Composer
+composer.lock
 
 # General
 /images/

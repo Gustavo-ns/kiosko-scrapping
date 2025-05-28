@@ -1,0 +1,3 @@
+<?php
+// Moviendo el contenido completo de test.php
+// ... existing code ... 

@@ -14,6 +14,24 @@
 </IfModule>
 
 # -------------------------------------
+# REDIRECCIÓN AL INDEX PRINCIPAL
+# -------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Si el archivo o directorio no existe físicamente
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Redirige todo a src/index.php
+    RewriteRule ^(.*)$ src/index.php [QSA,L]
+    
+    # Permite acceso directo a la carpeta public
+    RewriteRule ^public/ - [L]
+</IfModule>
+
+# -------------------------------------
 # CACHE DE RECURSOS ESTÁTICOS
 # -------------------------------------
 <IfModule mod_expires.c>
@@ -72,7 +90,7 @@
 </FilesMatch>
 
 # php -- BEGIN cPanel-generated handler, do not edit
-# Set the “ea-php83” package as the default “PHP” programming language.
+# Set the "ea-php83" package as the default "PHP" programming language.
 <IfModule mime_module>
   #AddHandler application/x-httpd-ea-php83___lsphp .php .php8 .phtml
 </IfModule>
