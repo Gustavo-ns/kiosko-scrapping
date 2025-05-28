@@ -63,13 +63,31 @@ try {
     ");
     $covers = $stmt->fetchAll();
 
+   // Obtener los datos de pk_meltwater_resumen
+    $stmt = $pdo->query("
+        SELECT *, 'resumen' as source_type FROM `pk_meltwater_resumen`
+        WHERE visualizar = 1 
+    ");
+    $pk_meltwater_resumen = $stmt->fetchAll();
+
+
     // Combinar ambos conjuntos de datos
-    $documents = array_merge($meltwater_docs, $covers);
+    $documents = array_merge($meltwater_docs, $covers, $pk_meltwater_resumen);
 
     // Ordenar por fecha de publicación/scraping
     usort($documents, function($a, $b) {
-        $date_a = isset($a['published_date']) ? $a['published_date'] : $a['scraped_at'];
-        $date_b = isset($b['published_date']) ? $b['published_date'] : $b['scraped_at'];
+        $date_a = isset($a['published_date']) ? $a['published_date'] : 
+                 (isset($a['scraped_at']) ? $a['scraped_at'] : 
+                 (isset($a['created_at']) ? $a['created_at'] : null));
+        
+        $date_b = isset($b['published_date']) ? $b['published_date'] : 
+                 (isset($b['scraped_at']) ? $b['scraped_at'] : 
+                 (isset($b['created_at']) ? $b['created_at'] : null));
+        
+        if (!$date_a && !$date_b) return 0;
+        if (!$date_a) return 1;
+        if (!$date_b) return -1;
+        
         return strtotime($date_b) - strtotime($date_a);
     });
 
@@ -107,7 +125,7 @@ try {
 // Iniciar buffer de salida
 ob_start();
 ?><!DOCTYPE html>
-<html lang="es">
+<html lang="es"> 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -116,21 +134,110 @@ ob_start();
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#ffffff">
     <title>Portadas de Periódicos</title>
-  <!-- Favicon básico -->
-  <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
+    <style>
+        /* Critical CSS */
+        body {
+            font-family: 'Bebas Neue', sans-serif;
+            background-color: #f4f4f4;
+            color: #474747;
+            margin: 0;
+            padding: 0;
+        }
+        .controls {
+            display: flex;
+            padding: 1rem;
+            background: #1e1e1e;
+            flex-direction: column;
+            flex-wrap: wrap;
+            align-content: space-around;
+            justify-content: center;
+            align-items: center;
+        }
+        .controls label {
+            color: #f0f0f0;
+        }
+        #grupoSelect {
+            font-size: 1.2rem;
+            padding: 0.5rem 1rem;
+            background-color: #222;
+            color: #f0f0f0;
+            border: 2px solid #444;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+            padding: 3rem;
+            content-visibility: auto;
+            contain-intrinsic-size: 300px;
+        }
+        .card {
+            position: relative;
+            overflow: hidden;
+            min-height: 500px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            will-change: transform;
+            content-visibility: auto;
+            contain-intrinsic-size: 300px;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+        .image-container {
+            position: relative;
+            width: 100%;
+            background: #f0f0f0;
+            overflow: hidden;
+        }
+        .card img {
+            position: relative;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: block;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1;
+        }
+        .card img.loaded {
+            opacity: 1;
+        }
+        .info {
+            padding: 1rem;
+        }
+        .info h3 {
+            margin: 0 0 0.5rem;
+            font-size: 1.2rem;
+            line-height: 1.4;
+        }
+        .info small {
+            display: block;
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+    <!-- Favicon básico -->
+    <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
 
-  <!-- Apple Touch Icon -->
-  <link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180x180.png">
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="favicon/favicon-180x180.png">
 
-  <!-- Android -->
-  <link rel="icon" type="image/png" sizes="192x192" href="favicon/favicon-192x192.png">
+    <!-- Android -->
+    <link rel="icon" type="image/png" sizes="192x192" href="favicon/favicon-192x192.png">
 
-  <!-- PWA y alta resolución -->
-  <link rel="icon" type="image/png" sizes="512x512" href="favicon/favicon-512x512.png">
+    <!-- PWA y alta resolución -->
+    <link rel="icon" type="image/png" sizes="512x512" href="favicon/favicon-512x512.png">
 
-  <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -140,172 +247,7 @@ ob_start();
     </noscript>
     
     <link rel="stylesheet" href="styles.css?v=<?= ASSETS_VERSION ?>" media="print" onload="this.media='all'">
-    <style>
-        /* Critical CSS - Only essential styles for first render */
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Bebas Neue', sans-serif;
-            background: #f5f5f5;
-        }
 
-        .container {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .controls {
-            display: flex;
-            padding: 1rem;
-            background: #1e1e1e;
-            color: white;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            flex-direction: column;
-            gap: 1rem;
-            height: auto;
-            min-height: 64px; /* Reservar espacio mínimo */
-        }
-
-        .filters {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 100%;
-            min-height: 40px; /* Reservar espacio mínimo */
-        }
-
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            height: 40px; /* Altura fija */
-        }
-
-        .filter-group select {
-            padding: 0.5rem;
-            border-radius: 4px;
-            border: 1px solid #444;
-            background: #333;
-            color: white;
-            font-size: 1rem;
-            height: 40px; /* Altura fija */
-            min-width: 200px; /* Ancho mínimo */
-        }
-
-        #refreshBtn {
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            border: none;
-            background: #444;
-            color: white;
-            cursor: pointer;
-            font-size: 1rem;
-            height: 40px; /* Altura fija */
-            min-width: 120px; /* Ancho mínimo */
-        }
-
-        .gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            justify-items: stretch;
-            align-content: space-between;
-            gap: 1rem;
-            padding: 1rem;
-            flex: 1;
-        }
-
-        .card {
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            aspect-ratio: 0.65; /* Mantener proporción consistente */
-            contain: layout style paint; /* Optimizar rendimiento */
-        }
-
-        .image-container {
-            position: relative;
-            width: 100%;
-            aspect-ratio: 0.65; /* Proporción consistente con la tarjeta */
-            background: #f0f0f0;
-            overflow: hidden;
-            contain: layout size style paint; /* Optimizar rendimiento */
-        }
-
-        .image-container img {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0; /* Iniciar invisible */
-            transition: opacity 0.2s ease-in-out;
-        }
-
-        .image-container img.loaded {
-            opacity: 1;
-        }
-
-        /* Placeholder shimmer con dimensiones fijas */
-        .image-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, #f0f0f0, #f8f8f8, #f0f0f0);
-            background-size: 200% 100%;
-            pointer-events: none;
-        }
-
-        .info {
-            padding: 1rem;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            min-height: 100px; /* Altura mínima para el contenido */
-        }
-
-        .info h3 {
-            margin: 0;
-            font-size: 1.2rem;
-            line-height: 1.2;
-        }
-
-        .info small {
-            display: block;
-            line-height: 1.4;
-        }
-
-        /* Modal styles */
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal img {
-            max-width: 90%;
-            max-height: 90vh;
-            object-fit: contain;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -313,11 +255,42 @@ ob_start();
             <?php 
             // Verificar si hay grupos con contenido
             $hasGroups = false;
-            foreach ($grupos as $grupo) {
-                if ($grupo['total'] > 0) {
-                    $hasGroups = true;
-                    break;
+            $groupTotals = [];
+            
+            // Filtrar documentos por fecha
+            $now = new DateTime(); // ahora
+            $yesterdayEvening = new DateTime('yesterday 16:00'); // ayer a las 16:00
+            
+            $filtered_documents = array_filter($documents, function($doc) use ($yesterdayEvening, $now) {
+                $date_str = null;
+                
+                if (isset($doc['published_date'])) {
+                    $date_str = $doc['published_date'];
+                } elseif (isset($doc['scraped_at'])) {
+                    $date_str = $doc['scraped_at'];
+                } elseif (isset($doc['created_at'])) {
+                    $date_str = $doc['created_at'];
                 }
+                
+                if (!$date_str) return false;
+                
+                try {
+                    $doc_date = new DateTime($date_str);
+                    return $doc_date >= $yesterdayEvening && $doc_date <= $now;
+                } catch (Exception $e) {
+                    error_log("Error parsing date: " . $date_str);
+                    return false;
+                }
+            });
+
+            // Calcular totales por grupo después del filtrado
+            foreach ($filtered_documents as $doc) {
+                $grupo = isset($doc['grupo']) ? $doc['grupo'] : 'otros';
+                if (!isset($groupTotals[$grupo])) {
+                    $groupTotals[$grupo] = 0;
+                }
+                $groupTotals[$grupo]++;
+                $hasGroups = true;
             }
             
             if ($hasGroups): 
@@ -326,14 +299,20 @@ ob_start();
                     <div class="filter-group">
                         <label for="grupoSelect">Grupo:</label>
                         <select id="grupoSelect">
-                            <option value="">Todos los grupos</option>
-                            <?php foreach ($grupos as $grupo): ?>
-                                <?php if ($grupo['total'] > 0): ?>
-                                    <option value="<?= htmlspecialchars($grupo['grupo']) ?>">
-                                        <?= htmlspecialchars($grupo['grupo']) ?> (<?= $grupo['total'] ?>)
-                                    </option>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
+                            <option value="">Todos los grupos (<?= count($filtered_documents) ?>)</option>
+                            <?php 
+                            // Ordenar grupos alfabéticamente
+                            ksort($groupTotals);
+                            foreach ($groupTotals as $grupo => $total): 
+                                if ($total > 0):
+                            ?>
+                                <option value="<?= htmlspecialchars($grupo) ?>">
+                                    <?= htmlspecialchars($grupo) ?> (<?= $total ?>)
+                                </option>
+                            <?php 
+                                endif;
+                            endforeach; 
+                            ?>
                         </select>
                     </div>
                 </div>
@@ -343,7 +322,15 @@ ob_start();
         </div>
 
         <div id="gallery" class="gallery">
-            <?php foreach ($documents as $doc): 
+            <?php
+            if (empty($filtered_documents)) {
+                echo '<div style="grid-column: 1/-1; text-align: center; padding: 2em;">
+                        <h2>No hay documentos disponibles para el período seleccionado</h2>
+                        <p>Últimas 24 horas: ' . $yesterdayEvening->format('d/m/Y H:i') . ' - ' . $now->format('d/m/Y H:i') . '</p>
+                      </div>';
+            }
+
+            foreach ($filtered_documents as $doc): 
                 // Variables comunes
                 $source_type = $doc['source_type'];
                 
@@ -363,7 +350,7 @@ ob_start();
                     }
                     $display_image = $image_paths ? $image_paths['thumbnail'] : $content_image;
                     $zoom_image = $image_paths ? $image_paths['original'] : $content_image;
-                } else {
+                } elseif ($source_type === 'cover') {
                     // Datos de covers
                     $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
                     $url_destino = isset($doc['source']) ? htmlspecialchars($doc['source']) : '#';
@@ -374,6 +361,17 @@ ob_start();
                     $display_image = $content_image;
                     $zoom_image = isset($doc['original_link']) ? $doc['original_link'] : $content_image;
                     $external_id = isset($doc['source']) ? htmlspecialchars($doc['source']) : '';
+                } elseif ($source_type === 'resumen') {
+                    // Datos de resumen
+                    $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : 'otros';
+                    $content_image = isset($doc['source']) ? htmlspecialchars($doc['source']) : 'img/resumen-placeholder.jpg';
+                    $title = isset($doc['titulo']) ? htmlspecialchars($doc['titulo']) : '(sin título)';
+                    $published_date = isset($doc['created_at']) ? date('Y-m-d H:i:s', strtotime($doc['created_at'])) : date('Y-m-d H:i:s');
+                    $external_id = isset($doc['twitter_id']) ? htmlspecialchars($doc['twitter_id']) : '';
+                    
+                    $display_image = $content_image;
+                    $zoom_image = $content_image;
+                    $url_destino = !empty($external_id) ? 'https://twitter.com/i/status/' . $external_id : '#';
                 }
 
                 // Solo mostrar si hay imagen y título
@@ -392,29 +390,25 @@ ob_start();
                     <div class="image-container">
                         <?php if ($content_image): ?>
                             <img loading="<?= $loading_strategy ?>" 
-                                 src="<?= $display_image ?>" 
+                                 src="<?= $zoom_image ?>?v=<?= ASSETS_VERSION ?>" 
                                  alt="<?= $title ?>" 
-                                 width="325" height="500" 
                                  class="loaded"
                                  <?php if ($image_count <= 6): ?>
                                  fetchpriority="high"
                                  <?php endif; ?>>
-                            <div class="zoom-icon" 
-                                 data-img="<?= $zoom_image ?>" 
-                                 title="Ver imagen ampliada">🔍</div>
                         <?php endif; ?>
                     </div>
                     <div class="info">
                         <h3><?= $title ?></h3>
                         <?php if ($grupo): ?>
                             <small class="medio-info">
-                                Grupo: <?= $grupo ?>
+                                <?= $grupo ?>
                             </small>
                         <?php endif; ?>
 
                         <?php if ($published_date): ?>
                             <small>
-                                <?= date('d/m/Y H:i', strtotime($published_date)) ?>
+                               Publicado: <?= date('d/m/Y H:i', strtotime($published_date)) ?>
                             </small>
                         <?php endif; ?>
                     </div>

@@ -91,20 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const skeleton = document.createElement('div');
           skeleton.className = 'skeleton';
 
-          // Agregar lupa
-          const zoomIcon = document.createElement('div');
-          zoomIcon.className = 'zoom-icon';
-          zoomIcon.innerHTML = '🔍';
-          zoomIcon.title = 'Ver imagen original';
-          zoomIcon.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            showModal(item.original_link || item.image_url);
-          });
-
           wrapper.appendChild(img);
           wrapper.appendChild(skeleton);
-          wrapper.appendChild(zoomIcon);
           link.appendChild(wrapper);
           card.appendChild(link);
 
