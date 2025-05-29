@@ -1,9 +1,17 @@
+/* Performance optimizations for PageSpeed */
+* {
+  box-sizing: border-box;
+}
+
 body {
   font-family: 'Bebas Neue', sans-serif;
   background-color: #f4f4f4;
   color: #474747;
   margin: 0;
   padding: 0;
+  font-display: swap;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .controls {
@@ -55,7 +63,8 @@ body {
   gap: 1.5rem;
   padding: 3rem;
   content-visibility: auto;
-  contain-intrinsic-size: 300px;
+  contain-intrinsic-size: 500px 300px;
+  contain: layout style;
 }
 .skeleton {
   position: absolute;
@@ -86,7 +95,7 @@ body {
 .card {
   position: relative;
   overflow: hidden;
-  min-height: 500px;
+  min-height: auto;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -95,7 +104,7 @@ body {
   transform-style: preserve-3d;
   will-change: transform;
   content-visibility: auto;
-  contain-intrinsic-size: 300px;
+  contain-intrinsic-size: 500px 300px;
   display: grid;
   grid-template-rows: auto 1fr;
 }
@@ -103,8 +112,12 @@ body {
 .image-container {
   position: relative;
   width: 100%;
+  min-height: 200px;
   background: #f0f0f0;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .image-container::before {
@@ -122,6 +135,13 @@ body {
   );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+
+.image-container.loaded::before {
+  opacity: 0;
 }
 
 @keyframes loading {
@@ -135,17 +155,15 @@ body {
 
 .card img {
   position: relative;
-  top: 0;
-  left: 0;
   width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
   display: block;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 1;
-}
-
-.card img.loaded {
   opacity: 1;
+  z-index: 1;
+  transform: translateZ(0); /* Force GPU acceleration */
+  backface-visibility: hidden; /* Optimize 3D transforms */
 }
 
 .card:hover {

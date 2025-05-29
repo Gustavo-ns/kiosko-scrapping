@@ -250,16 +250,42 @@ ob_start();
     <meta name="theme-color" content="#ffffff">
     <meta http-equiv='cache-control' content='no-cache'>
 <meta http-equiv='expires' content='0'>
-<meta http-equiv='pragma' content='no-cache'>
-    <title>Portadas de Periódicos</title>
-    <style>
-        /* Critical CSS */
+<meta http-equiv='pragma' content='no-cache'>    <title>Portadas de Periódicos</title>
+    
+    <?php    // Preload de las primeras imágenes críticas para mejor PageSpeed
+    // Debug: Verificar si $filtered_documents está definido
+    if (!isset($filtered_documents)) {
+        $filtered_documents = [];
+    }
+    
+    $critical_images = array_slice($filtered_documents, 0, 3);
+    foreach ($critical_images as $doc) {
+        $source_type = $doc['source_type'];
+        $image_url = '';
+        
+        if ($source_type === 'meltwater' && isset($doc['content_image'])) {
+            $image_url = $doc['content_image'];
+        } elseif ($source_type === 'cover' && isset($doc['image_url'])) {
+            $image_url = $doc['image_url'];
+        } elseif ($source_type === 'resumen' && isset($doc['source'])) {
+            $image_url = $doc['source'];
+        }
+        
+        if ($image_url): ?>
+    <link rel="preload" as="image" href="<?= htmlspecialchars($image_url) ?>?v=<?= ASSETS_VERSION ?>" fetchpriority="high">
+        <?php endif;
+    } ?>
+    
+    <style>        /* Critical CSS */
         body {
-            font-family: 'Bebas Neue', sans-serif;
+            font-family: 'Bebas Neue', 'Arial Black', 'Helvetica Bold', Arial, sans-serif;
+            font-display: swap;
             background-color: #f4f4f4;
-            color: #474747;
-            margin: 0;
+            color: #474747;            margin: 0;
             padding: 0;
+        }
+        .skip-link:focus {
+            top: 6px;
         }
         .controls {
             display: flex;
@@ -291,11 +317,10 @@ ob_start();
             padding: 3rem;
             content-visibility: auto;
             contain-intrinsic-size: 300px;
-        }
-        .card {
+        }        .card {
             position: relative;
             overflow: hidden;
-            min-height: 500px;
+            min-height: auto;
             background: #ffffff;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -307,18 +332,21 @@ ob_start();
             contain-intrinsic-size: 300px;
             display: grid;
             grid-template-rows: auto 1fr;
-        }
-        .image-container {
+        }.image-container {
             position: relative;
             width: 100%;
             background: #f0f0f0;
             overflow: hidden;
-        }
-        .card img {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }        .card img {
             position: relative;
-            top: 0;
-            left: 0;
             width: 100%;
+            height: auto;
+            object-fit: contain;
+            object-position: center;
             display: block;
             opacity: 0;
             transition: opacity 0.3s ease;
@@ -353,11 +381,14 @@ ob_start();
     <link rel="icon" type="image/png" sizes="192x192" href="favicon/favicon-192x192.png">
 
     <!-- PWA y alta resolución -->
-    <link rel="icon" type="image/png" sizes="512x512" href="favicon/favicon-512x512.png">
-
-    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="512x512" href="favicon/favicon-512x512.png">    <link rel="manifest" href="manifest.json">
     
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- DNS prefetch para recursos externos -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+    
+    <!-- Preconnect optimizado -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
@@ -368,6 +399,9 @@ ob_start();
 
 </head>
 <body>
+    <!-- Skip link for accessibility -->
+    <a href="#gallery" class="skip-link" style="position: absolute; top: -40px; left: 6px; background: #000; color: #fff; padding: 8px; text-decoration: none; z-index: 9999;">Ir al contenido principal</a>
+    
     <div class="container">
         <div class="controls">
             <?php 
@@ -435,14 +469,17 @@ ob_start();
                     </div>
                 </div>
             <?php endif; ?>            <button id="refreshBtn">🔄 Actualizar</button>
-        </div>
-
-        <div id="gallery" class="gallery">
+        </div>        <div id="gallery" class="gallery">
             <?php
+            // Debug: mostrar información de los documentos
+            echo "<!-- Debug: Total documentos: " . count($documents) . " -->";
+            echo "<!-- Debug: Documentos filtrados: " . count($filtered_documents) . " -->";
+            
             if (empty($filtered_documents)) {
                 echo '<div style="grid-column: 1/-1; text-align: center; padding: 2em;">
                         <h2>No hay documentos disponibles para el período seleccionado</h2>
                         <p>Últimas 24 horas: ' . $yesterdayEvening->format('d/m/Y H:i') . ' - ' . $now->format('d/m/Y H:i') . '</p>
+                        <p>Total documentos en BD: ' . count($documents) . '</p>
                       </div>';
             }
 
@@ -506,18 +543,18 @@ ob_start();
                      data-source-type="<?= $source_type ?>"
                      data-grupo="<?= $grupo ?>" 
                      data-external-id="<?= $external_id ?>"
-                     data-published-date="<?= $published_date ?>">
-                    <div class="image-container">
+                     data-published-date="<?= $published_date ?>">                    <div class="image-container" id="img-container-<?= $image_count ?>">
                         <?php if ($content_image): ?>
                             <img loading="<?= $loading_strategy ?>" 
                                  src="<?= $zoom_image ?>?v=<?= ASSETS_VERSION ?>" 
                                  alt="<?= $title ?>" 
-                                 class="loaded"
+                                 onload="this.parentElement.classList.add('loaded')"
+                                 onerror="this.parentElement.classList.add('loaded')"
                                  <?php if ($image_count <= 6): ?>
                                  fetchpriority="high"
                                  <?php endif; ?>>
                         <?php endif; ?>
-                    </div>                    <div class="info">
+                    </div><div class="info">
                         <h3><?= $title ?></h3>
                         <?php if ($grupo || $pais): ?>
                             <small class="medio-info">
@@ -546,20 +583,69 @@ ob_start();
         <span class="close">&times;</span>
         <div class="loader" id="modalLoader"></div>
         <img id="modalImage" alt="Imagen en modal" style="display: none;">
-    </div>
-
-    <script>
+    </div>    <script>
+        // Optimización de preload para PageSpeed
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('service-worker.js')
                 .then(reg => console.log('SW registrado:', reg.scope))
                 .catch(err => console.error('Error SW:', err));
-        }
-
+        }        // Optimización completa de imágenes y funcionalidad de la aplicación
         document.addEventListener('DOMContentLoaded', () => {
+            // Performance monitoring
+            const perfStart = performance.now();
+            
+            // 1. Preload optimizado de imágenes above-the-fold con manejo mejorado de eventos
+            const criticalImages = document.querySelectorAll('.card:nth-child(-n+6) img[fetchpriority="high"]');
+            let loadedCriticalImages = 0;
+            
+            const handleImageLoad = (img, isError = false) => {
+                img.parentElement.classList.add('loaded');
+                if (!isError) {
+                    loadedCriticalImages++;
+                    // Dispatch evento personalizado cuando todas las imágenes críticas estén cargadas
+                    if (loadedCriticalImages === criticalImages.length) {
+                        document.dispatchEvent(new CustomEvent('criticalImagesLoaded', {
+                            detail: { loadTime: performance.now() - perfStart }
+                        }));
+                    }
+                }
+            };
+
+            criticalImages.forEach((img) => {
+                if (!img.complete) {
+                    img.addEventListener('load', () => handleImageLoad(img), { once: true });
+                    img.addEventListener('error', () => handleImageLoad(img, true), { once: true });
+                } else {
+                    // Si la imagen ya está cargada
+                    handleImageLoad(img);
+                }
+            });
+
+            // 2. Lazy loading optimizado para imágenes restantes con mejor performance
+            if ('IntersectionObserver' in window) {
+                const lazyImages = document.querySelectorAll('img[loading="lazy"]');
+                const imageObserver = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            img.addEventListener('load', () => handleImageLoad(img), { once: true });
+                            img.addEventListener('error', () => handleImageLoad(img, true), { once: true });
+                            observer.unobserve(img);
+                        }
+                    });
+                }, {
+                    rootMargin: '50px 0px',
+                    threshold: 0.1
+                });
+
+                lazyImages.forEach(img => imageObserver.observe(img));
+            }// 3. Configuración del modal de imágenes
             const imageModal = document.getElementById('imageModal');
             const modalImage = document.getElementById('modalImage');
             const modalLoader = document.getElementById('modalLoader');
             const closeModal = imageModal.querySelector('.close');
+            
+            // 4. Configuración de filtros y funcionalidad principal
             const grupoSelect = document.getElementById('grupoSelect');
             const gallery = document.getElementById('gallery');
 
@@ -653,11 +739,49 @@ ob_start();
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    alert('Error al actualizar los datos');
-                } finally {
+                    alert('Error al actualizar los datos');                } finally {
                     refreshBtn.disabled = false;
                     refreshBtn.textContent = '🔄 Actualizar';
                 }
+            });
+
+            // 5. Performance monitoring y reporte
+            document.addEventListener('criticalImagesLoaded', (event) => {
+                const loadTime = event.detail.loadTime;
+                console.log(`Imágenes críticas cargadas en ${loadTime.toFixed(2)}ms`);
+                
+                // Reportar Core Web Vitals si están disponibles
+                if ('PerformanceObserver' in window) {
+                    try {
+                        // Largest Contentful Paint
+                        new PerformanceObserver((entryList) => {
+                            const entries = entryList.getEntries();
+                            const lcpEntry = entries[entries.length - 1];
+                            console.log('LCP:', lcpEntry.startTime.toFixed(2) + 'ms');
+                        }).observe({ entryTypes: ['largest-contentful-paint'] });
+
+                        // Cumulative Layout Shift
+                        new PerformanceObserver((entryList) => {
+                            let clsValue = 0;
+                            for (const entry of entryList.getEntries()) {
+                                if (!entry.hadRecentInput) {
+                                    clsValue += entry.value;
+                                }
+                            }
+                            if (clsValue > 0) {
+                                console.log('CLS:', clsValue.toFixed(4));
+                            }
+                        }).observe({ entryTypes: ['layout-shift'] });
+                    } catch (e) {
+                        // Observer no disponible en este navegador
+                    }
+                }
+            });
+
+            // Log final de rendimiento
+            window.addEventListener('load', () => {
+                const loadTime = performance.now() - perfStart;
+                console.log(`Aplicación completamente cargada en ${loadTime.toFixed(2)}ms`);
             });
         });
     </script>

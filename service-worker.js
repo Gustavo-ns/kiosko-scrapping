@@ -1,4 +1,5 @@
-const CACHE_NAME = 'portadas-cache-v1';
+const CACHE_NAME = 'portadas-cache-v2';
+const IMAGE_CACHE = 'portadas-images-v1';
 const OFFLINE_URL = 'offline.html';
 
 const STATIC_ASSETS = [
@@ -7,7 +8,7 @@ const STATIC_ASSETS = [
   'scripts.js',
   'favicon/favicon.ico',
   'offline.html',
-  // Añade más rutas según tu sitio
+  'manifest.json'
 ];
 
 // Instala el Service Worker y guarda en caché los archivos necesarios
@@ -31,7 +32,7 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Intercepta solicitudes
+// Intercepta solicitudes con estrategia optimizada
 self.addEventListener('fetch', event => {
     const request = event.request;
   
@@ -39,7 +40,32 @@ self.addEventListener('fetch', event => {
     if (!request.url.startsWith('http')) {
       return;
     }
+
+    // Estrategia especial para imágenes
+    if (request.destination === 'image') {
+      event.respondWith(
+        caches.open(IMAGE_CACHE).then(cache => {
+          return cache.match(request).then(cached => {
+            if (cached) return cached;
+            
+            return fetch(request).then(response => {
+              if (response && response.status === 200) {
+                cache.put(request, response.clone());
+              }
+              return response;
+            }).catch(() => {
+              // Imagen placeholder en caso de error
+              return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="100%" height="100%" fill="#f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="#999">Imagen no disponible</text></svg>', {
+                headers: { 'Content-Type': 'image/svg+xml' }
+              });
+            });
+          });
+        })
+      );
+      return;
+    }
   
+    // Estrategia para otros recursos
     event.respondWith(
       caches.match(request).then(cached => {
         return cached || fetch(request).then(response => {
@@ -54,7 +80,10 @@ self.addEventListener('fetch', event => {
   
           return response;
         }).catch(() => {
-          // Opción: retornar algo en caso de error de red
+          // Retornar página offline para navegación
+          if (request.mode === 'navigate') {
+            return caches.match(OFFLINE_URL);
+          }
         });
       })
     );

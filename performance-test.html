@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Test - Kiosko Scrapping</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .test-result {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; }
+        .warning { background: #fff3cd; }
+        .error { background: #f8d7da; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Performance Test - Optimización de Imágenes</h1>
+    
+    <h2>Pruebas de Optimización</h2>
+    <div id="results"></div>
+    
+    <button onclick="runPerformanceTests()">Ejecutar Pruebas</button>
+    <button onclick="loadMainApp()">Cargar Aplicación Principal</button>
+    
+    <h2>Métricas de Performance</h2>
+    <div id="metrics"></div>
+
+    <script>
+        function addResult(message, type = 'test-result') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function addMetric(metric, value, unit = '') {
+            const div = document.createElement('div');
+            div.className = 'test-result';
+            div.innerHTML = `<strong>${metric}:</strong> ${value}${unit}`;
+            document.getElementById('metrics').appendChild(div);
+        }
+
+        function runPerformanceTests() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('metrics').innerHTML = '';
+            
+            addResult('🔍 Iniciando pruebas de optimización...', 'success');
+            
+            // Test 1: Service Worker
+            if ('serviceWorker' in navigator) {
+                addResult('✅ Service Worker soportado', 'success');
+            } else {
+                addResult('❌ Service Worker no soportado', 'error');
+            }
+            
+            // Test 2: Intersection Observer
+            if ('IntersectionObserver' in window) {
+                addResult('✅ Intersection Observer soportado (lazy loading disponible)', 'success');
+            } else {
+                addResult('⚠️ Intersection Observer no soportado', 'warning');
+            }
+            
+            // Test 3: Performance Observer
+            if ('PerformanceObserver' in window) {
+                addResult('✅ Performance Observer soportado (métricas Core Web Vitals)', 'success');
+            } else {
+                addResult('⚠️ Performance Observer no soportado', 'warning');
+            }
+            
+            // Test 4: CSS Container Queries
+            if (CSS.supports('contain', 'layout style')) {
+                addResult('✅ CSS Containment soportado', 'success');
+            } else {
+                addResult('⚠️ CSS Containment no soportado completamente', 'warning');
+            }
+            
+            // Test 5: Critical Resource Hints
+            const preloadLinks = document.querySelectorAll('link[rel="preload"]');
+            const preconnectLinks = document.querySelectorAll('link[rel="preconnect"]');
+            
+            addResult(`📊 Enlaces de preload encontrados: ${preloadLinks.length}`, 'test-result');
+            addResult(`🔗 Enlaces de preconnect encontrados: ${preconnectLinks.length}`, 'test-result');
+            
+            // Métricas de rendimiento
+            if (performance.timing) {
+                const timing = performance.timing;
+                const domContentLoaded = timing.domContentLoadedEventEnd - timing.navigationStart;
+                const pageLoad = timing.loadEventEnd - timing.navigationStart;
+                
+                addMetric('DOM Content Loaded', domContentLoaded.toFixed(2), 'ms');
+                addMetric('Page Load Complete', pageLoad.toFixed(2), 'ms');
+            }
+            
+            // Navigation Timing API v2
+            if (performance.getEntriesByType) {
+                const navEntries = performance.getEntriesByType('navigation');
+                if (navEntries.length > 0) {
+                    const nav = navEntries[0];
+                    addMetric('DNS Lookup', (nav.domainLookupEnd - nav.domainLookupStart).toFixed(2), 'ms');
+                    addMetric('TCP Connection', (nav.connectEnd - nav.connectStart).toFixed(2), 'ms');
+                    addMetric('Response Time', (nav.responseEnd - nav.responseStart).toFixed(2), 'ms');
+                }
+            }
+            
+            addResult('✅ Pruebas completadas', 'success');
+        }
+
+        function loadMainApp() {
+            // Monitorear el tiempo de carga
+            const startTime = performance.now();
+            
+            // Crear iframe para cargar la aplicación principal
+            const iframe = document.createElement('iframe');
+            iframe.src = 'index.php';
+            iframe.style.width = '100%';
+            iframe.style.height = '600px';
+            iframe.style.border = '1px solid #ddd';
+            iframe.style.marginTop = '20px';
+            
+            iframe.onload = () => {
+                const loadTime = performance.now() - startTime;
+                addMetric('Tiempo de Carga de la App Principal', loadTime.toFixed(2), 'ms');
+                addResult('✅ Aplicación principal cargada en iframe', 'success');
+            };
+            
+            // Limpiar iframes anteriores
+            const existingIframes = document.querySelectorAll('iframe');
+            existingIframes.forEach(frame => frame.remove());
+            
+            document.body.appendChild(iframe);
+        }
+
+        // Auto-ejecutar pruebas al cargar
+        window.addEventListener('load', () => {
+            addResult('🚀 Página de pruebas cargada. Listo para ejecutar tests.', 'success');
+        });
+    </script>
+</body>
+</html>
