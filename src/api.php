@@ -1,8 +1,8 @@
 <?php
 // api.php
 header('Content-Type: application/json');
-require 'config.php';
-$cfg = require 'config.php';
+require '../config.php';
+$cfg = require '../config.php';
 
 $pdo = new PDO(
     "mysql:host={$cfg['db']['host']};dbname={$cfg['db']['name']};charset={$cfg['db']['charset']}",

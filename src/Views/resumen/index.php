@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function cargarGrupos() {
-    fetch('?route=resumen/grupos')
+    fetch('/api/grupos')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -169,7 +169,7 @@ document.getElementById('form-editar').addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
     
-    fetch('?route=resumen/update', {
+    fetch('/api/update-record', {
         method: 'POST',
         body: formData
     })
@@ -184,7 +184,7 @@ document.getElementById('form-editar').addEventListener('submit', function(e) {
 });
 
 function toggleVisibilidad(id, estado) {
-    fetch('?route=resumen/visibility', {
+    fetch('/api/update-visibility', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',

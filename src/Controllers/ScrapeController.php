@@ -125,11 +125,10 @@ class ScrapeController extends BaseController
     }
 
     private function processCustomExtractor($conf, $country, $alt, $fullUri)
-    {
-        switch ($conf['custom_extractor']) {
+    {        switch ($conf['custom_extractor']) {
             case 'extractWithXPath':
-                $xpath = $conf['xpath'] ?? '//img';
-                $attr = $conf['attribute'] ?? 'src';
+                $xpath = isset($conf['xpath']) ? $conf['xpath'] : '//img';
+                $attr = isset($conf['attribute']) ? $conf['attribute'] : 'src';
                 $urlImg = $this->extractWithXPath($conf['url'], $xpath, $attr);
                 if ($urlImg) {
                     $urlImg = $this->makeAbsoluteUrl($conf['url'], $urlImg);
@@ -356,4 +355,190 @@ class ScrapeController extends BaseController
             return false;
         }
     }
-} 
+
+    // Async scraping methods for API endpoints
+    public function start()
+    {
+        header('Content-Type: application/json');
+        
+        // Check if a process is already running
+        $processFile = sys_get_temp_dir() . '/scrape_process.pid';
+        if (file_exists($processFile)) {
+            $pid = file_get_contents($processFile);
+            if ($this->isProcessRunning($pid)) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Ya hay un proceso de scraping en ejecución'
+                ]);
+                return;
+            }
+        }
+
+        // Generate a unique process ID
+        $processId = uniqid('scrape_');
+        
+        try {
+            // Start the scraping process in background
+            $command = "php " . realpath(__DIR__ . '/../../scrape.php') . " > /dev/null 2>&1 & echo $!";
+            $pid = shell_exec($command);
+            
+            if ($pid) {
+                // Store process information
+                file_put_contents($processFile, trim($pid));
+                file_put_contents(sys_get_temp_dir() . "/scrape_{$processId}.json", json_encode([
+                    'processId' => $processId,
+                    'pid' => trim($pid),
+                    'started' => time(),
+                    'total' => $this->countSitesToScrape(),
+                    'processed' => 0,
+                    'status' => 'running',
+                    'log' => []
+                ]));
+                
+                echo json_encode([
+                    'success' => true,
+                    'processId' => $processId,
+                    'message' => 'Proceso de scraping iniciado'
+                ]);
+            } else {
+                throw new \Exception('No se pudo iniciar el proceso');
+            }
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error al iniciar el scraping: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function stop()
+    {
+        header('Content-Type: application/json');
+        
+        $processId = isset($_GET['processId']) ? $_GET['processId'] : (isset($_POST['processId']) ? $_POST['processId'] : null);
+        if (!$processId) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'ID de proceso requerido'
+            ]);
+            return;
+        }
+
+        try {
+            $processFile = sys_get_temp_dir() . "/scrape_{$processId}.json";            if (file_exists($processFile)) {
+                $processInfo = json_decode(file_get_contents($processFile), true);
+                $pid = isset($processInfo['pid']) ? $processInfo['pid'] : null;
+                
+                if ($pid && $this->isProcessRunning($pid)) {
+                    // Try to kill the process gracefully first
+                    exec("kill {$pid}", $output, $return);
+                    sleep(2);
+                    
+                    // If still running, force kill
+                    if ($this->isProcessRunning($pid)) {
+                        exec("kill -9 {$pid}");
+                    }
+                }
+                
+                // Update process status
+                $processInfo['status'] = 'stopped';
+                $processInfo['stopped'] = time();
+                file_put_contents($processFile, json_encode($processInfo));
+                
+                // Clean up main process file
+                $mainProcessFile = sys_get_temp_dir() . '/scrape_process.pid';
+                if (file_exists($mainProcessFile)) {
+                    unlink($mainProcessFile);
+                }
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Proceso detenido'
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error al detener el proceso: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function status()
+    {
+        header('Content-Type: application/json');
+        
+        $processId = isset($_GET['processId']) ? $_GET['processId'] : null;
+        if (!$processId) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'ID de proceso requerido'
+            ]);
+            return;
+        }
+
+        try {
+            $processFile = sys_get_temp_dir() . "/scrape_{$processId}.json";
+            if (!file_exists($processFile)) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Proceso no encontrado'
+                ]);
+                return;
+            }            $processInfo = json_decode(file_get_contents($processFile), true);
+            $pid = isset($processInfo['pid']) ? $processInfo['pid'] : null;
+            
+            // Check if process is still running
+            $isRunning = $pid ? $this->isProcessRunning($pid) : false;
+            
+            if (!$isRunning && $processInfo['status'] === 'running') {
+                $processInfo['status'] = 'completed';
+                $processInfo['completed'] = time();
+                file_put_contents($processFile, json_encode($processInfo));
+            }
+
+            // Get current processed count from database
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM covers");
+            $stmt->execute();
+            $currentProcessed = $stmt->fetchColumn();
+            
+            echo json_encode([
+                'success' => true,
+                'processId' => $processId,
+                'status' => $processInfo['status'],
+                'total' => $processInfo['total'],
+                'processed' => $currentProcessed,
+                'completed' => ($processInfo['status'] === 'completed' || $processInfo['status'] === 'stopped'),
+                'log' => $this->getRecentLogs(),
+                'isRunning' => $isRunning
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error al obtener el estado: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    private function isProcessRunning($pid)
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $output = shell_exec("tasklist /FI \"PID eq {$pid}\" 2>NUL");
+            return strpos($output, (string)$pid) !== false;
+        } else {
+            $output = shell_exec("ps -p {$pid} 2>/dev/null");
+            return !empty($output) && strpos($output, (string)$pid) !== false;
+        }
+    }
+
+    private function getRecentLogs()
+    {
+        $logFile = __DIR__ . '/../../scrape_errors.log';
+        if (!file_exists($logFile)) {
+            return [];
+        }
+
+        $lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        return array_slice($lines, -10); // Return last 10 log entries
+    }
+}

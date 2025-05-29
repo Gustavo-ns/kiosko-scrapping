@@ -5,7 +5,7 @@ ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
 // Cargar configuración de la base de datos
-$cfg = require 'config.php';
+$cfg = require '../config.php';
 
 try {
   $pdo = new PDO(
@@ -215,9 +215,8 @@ $registros = $stmt->fetchAll();
 <body>
 
   <h1>Resumen Meltwater</h1>
-
   <div class="actions-bar">
-    <a href="importar_enlaces.php" class="btn btn-primary">📥 Importar Enlaces</a>
+    <a href="/importar" class="btn btn-primary">📥 Importar Enlaces</a>
     <button id="clearBtn" class="btn btn-danger">🗑️ Limpiar registros antiguos</button>
   </div>
 
@@ -320,7 +319,7 @@ $registros = $stmt->fetchAll();
         const id = this.dataset.id;
         const visualizar = this.checked ? 1 : 0;
 
-        fetch('update_visibility.php', {
+        fetch('/api/update-visibility', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded'
@@ -386,7 +385,7 @@ $registros = $stmt->fetchAll();
           return;
         }
 
-        fetch('update_record.php', {
+        fetch('/api/update-record', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -426,7 +425,7 @@ $registros = $stmt->fetchAll();
       if (gruposCache) return gruposCache;
 
       try {
-        const response = await fetch('get_grupos.php');
+        const response = await fetch('/api/grupos');
         const data = await response.json();
         if (data.success) {
           gruposCache = data.grupos;
@@ -539,7 +538,7 @@ $registros = $stmt->fetchAll();
 
       const formData = new FormData(this);
 
-      fetch('add_record.php', {
+      fetch('/api/add-record', {
           method: 'POST',
           body: new URLSearchParams(formData)
         })
@@ -560,7 +559,7 @@ $registros = $stmt->fetchAll();
     // Agregar funcionalidad al botón de limpieza
     document.getElementById('clearBtn').addEventListener('click', function() {
       if (confirm('¿Estás seguro de que deseas eliminar los registros antiguos (más de 24 horas) que no están marcados para visualizar?')) {
-        fetch('clear_records.php', {
+        fetch('/api/clear-records', {
           method: 'POST'
         })
         .then(res => res.json())

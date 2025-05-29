@@ -177,9 +177,8 @@ try {
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="nav-links">
-            <a href="resumen.php">← Volver a Resumen</a>
+    <div class="container">        <div class="nav-links">
+            <a href="/resumen">← Volver a Resumen</a>
         </div>
 
         <h1>Importar Enlaces</h1>
@@ -228,7 +227,7 @@ try {
             if (gruposCache) return gruposCache;
 
             try {
-                const response = await fetch('get_grupos.php');
+                const response = await fetch('/api/grupos');
                 const data = await response.json();
                 if (data.success) {
                     gruposCache = data.grupos;
@@ -346,7 +345,7 @@ try {
                 return;
             }
 
-            fetch('process_bulk_links.php', {
+            fetch('/api/process-bulk-links', {
                 method: 'POST',
                 body: new URLSearchParams(formData)
             })

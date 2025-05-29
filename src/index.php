@@ -1,9 +1,9 @@
 <?php
-require_once 'cache_config.php';
-require_once 'download_image.php';
+require_once '../config/cache_config.php';
+require_once '../scripts/download_image.php';
 
 // Cargar configuración de la base de datos
-$cfg = require 'config.php';
+$cfg = require '../config.php';
 
 // Función para obtener el hash del contenido actual
 function getContentHash($pdo) {
@@ -518,7 +518,7 @@ ob_start();
                 refreshBtn.textContent = '🔄 Actualizando...';
                 
                 try {
-                    const response = await fetch('update_melwater.php');
+                    const response = await fetch('/api/update-melwater');
                     const data = await response.json();
                     
                     if (data.success) {

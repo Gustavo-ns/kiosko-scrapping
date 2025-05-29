@@ -6,14 +6,13 @@
     <title><?= $title ?? 'Kiosko Scraping' ?></title>
     <link rel="stylesheet" href="/assets/css/styles.css">
 </head>
-<body>
-    <nav class="main-nav">
+<body>    <nav class="main-nav">
         <div class="nav-container">
-            <a href="?route=home" class="nav-logo">Kiosko Scraping</a>
+            <a href="/home" class="nav-logo">Kiosko Scraping</a>
             <div class="nav-links">
-                <a href="?route=resumen">Resumen</a>
-                <a href="?route=importar">Importar Enlaces</a>
-                <a href="?route=scrape">Ejecutar Scraping</a>
+                <a href="/resumen">Resumen</a>
+                <a href="/importar">Importar Enlaces</a>
+                <a href="/scrape">Ejecutar Scraping</a>
             </div>
         </div>
     </nav>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Endpoints</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .endpoint-test { margin: 10px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .working { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .loading { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 10px 5px; cursor: pointer; }
+        .status { font-weight: bold; margin-left: 10px; }
+        .method { 
+            display: inline-block; 
+            padding: 2px 8px; 
+            background: #007bff; 
+            color: white; 
+            border-radius: 3px; 
+            font-size: 12px; 
+            margin-right: 10px;
+        }
+        .method.post { background: #28a745; }
+        .response { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>API Endpoints Test</h1>
+    <button onclick="testAllEndpoints()">Test All Endpoints</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results">
+        <h2>Main Page URLs:</h2>
+        <div class="endpoint-test" data-url="/home" data-method="GET">
+            <span class="method">GET</span><strong>/home</strong> → src/index.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/resumen" data-method="GET">
+            <span class="method">GET</span><strong>/resumen</strong> → src/resumen.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/api" data-method="GET">
+            <span class="method">GET</span><strong>/api</strong> → src/api.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/importar" data-method="GET">
+            <span class="method">GET</span><strong>/importar</strong> → scripts/importar_enlaces.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>        <div class="endpoint-test" data-url="/scrape" data-method="GET">
+            <span class="method">GET</span><strong>/scrape</strong> → scrape.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        
+        <h2>Async Scraping API:</h2>
+        <div class="endpoint-test" data-url="/api/scrape/start" data-method="POST">
+            <span class="method">POST</span><strong>/api/scrape/start</strong> → ScrapeController@start
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/api/scrape/status" data-method="GET">
+            <span class="method">GET</span><strong>/api/scrape/status</strong> → ScrapeController@status
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/api/scrape/stop" data-method="POST">
+            <span class="method">POST</span><strong>/api/scrape/stop</strong> → ScrapeController@stop
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        
+        <h2>API Endpoints (AJAX):</h2>
+        <div class="endpoint-test" data-url="/api/grupos" data-method="GET">
+            <span class="method">GET</span><strong>/api/grupos</strong> → scripts/get_grupos.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/api/update-melwater" data-method="GET">
+            <span class="method">GET</span><strong>/api/update-melwater</strong> → scripts/update_melwater.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        
+        <h3>POST Endpoints (with test data):</h3>
+        <div class="endpoint-test" data-url="/api/update-record" data-method="POST">
+            <span class="method post">POST</span><strong>/api/update-record</strong> → scripts/update_record.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/api/update-visibility" data-method="POST">
+            <span class="method post">POST</span><strong>/api/update-visibility</strong> → scripts/update_visibility.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/api/clear-records" data-method="POST">
+            <span class="method post">POST</span><strong>/api/clear-records</strong> → scripts/clear_records.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/api/add-record" data-method="POST">
+            <span class="method post">POST</span><strong>/api/add-record</strong> → scripts/add_record.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+        <div class="endpoint-test" data-url="/api/process-bulk-links" data-method="POST">
+            <span class="method post">POST</span><strong>/api/process-bulk-links</strong> → scripts/process_bulk_links.php
+            <span class="status"></span>
+            <div class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testAllEndpoints() {
+            const tests = document.querySelectorAll('.endpoint-test');
+            
+            for (const test of tests) {
+                const url = test.dataset.url;
+                const method = test.dataset.method;
+                const statusElement = test.querySelector('.status');
+                const responseElement = test.querySelector('.response');
+                
+                test.className = 'endpoint-test loading';
+                statusElement.textContent = 'Testing...';
+                responseElement.style.display = 'none';
+                
+                try {
+                    const options = { method };
+                    
+                    if (method === 'POST') {
+                        options.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+                        // Add minimal test data for POST requests
+                        if (url.includes('update-record')) {
+                            options.body = 'id=1&grupo=Test';
+                        } else if (url.includes('update-visibility')) {
+                            options.body = 'id=1&visualizar=1';
+                        } else if (url.includes('add-record')) {
+                            options.body = 'grupo=Test&pais=Test&titulo=Test';
+                        } else if (url.includes('process-bulk-links')) {
+                            options.body = 'grupo=Test&pais=Test&links=http://example.com';
+                        } else {
+                            options.body = 'test=1';
+                        }
+                    }
+                    
+                    const response = await fetch(url, options);
+                    const responseText = await response.text();
+                    
+                    if (response.ok) {
+                        test.className = 'endpoint-test working';
+                        statusElement.textContent = `✓ ${response.status} ${response.statusText}`;
+                    } else {
+                        test.className = 'endpoint-test error';
+                        statusElement.textContent = `✗ ${response.status} ${response.statusText}`;
+                    }
+                    
+                    // Show response for API endpoints
+                    if (url.startsWith('/api/')) {
+                        responseElement.textContent = responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '');
+                        responseElement.style.display = 'block';
+                    }
+                    
+                } catch (error) {
+                    test.className = 'endpoint-test error';
+                    statusElement.textContent = `✗ Error: ${error.message}`;
+                }
+                
+                // Small delay between requests
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
+        
+        function clearResults() {
+            const tests = document.querySelectorAll('.endpoint-test');
+            tests.forEach(test => {
+                test.className = 'endpoint-test';
+                test.querySelector('.status').textContent = '';
+                test.querySelector('.response').style.display = 'none';
+            });
+        }
+    </script>
+</body>
+</html>

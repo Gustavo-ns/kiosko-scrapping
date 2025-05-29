@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Async Scraping - Kiosko Scrapping</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 4px;
+            background: #e9ecef;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress {
+            height: 100%;
+            background: #28a745;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Async Scraping</h1>
+        <p>Esta página permite probar la funcionalidad de scraping asíncrono usando las nuevas APIs con URLs amigables.</p>
+
+        <div class="controls">
+            <button id="startBtn" class="btn">Iniciar Scraping</button>
+            <button id="stopBtn" class="btn btn-danger" disabled>Detener Scraping</button>
+            <button id="statusBtn" class="btn">Estado Manual</button>
+            <button id="clearBtn" class="btn">Limpiar Log</button>
+        </div>
+
+        <div class="status">
+            <h3>Estado del Proceso</h3>
+            <p>Proceso ID: <span id="processId">-</span></p>
+            <p>Estado: <span id="status">Inactivo</span></p>
+            <p>Progreso: <span id="progress">0/0</span></p>
+            <div class="progress-bar">
+                <div id="progressBar" class="progress" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let currentProcessId = null;
+        let isRunning = false;
+        let statusInterval = null;
+
+        const log = document.getElementById('log');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusBtn = document.getElementById('statusBtn');
+        const clearBtn = document.getElementById('clearBtn');
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${timestamp}] ${message}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function updateStatus(data) {
+            document.getElementById('processId').textContent = data.processId || '-';
+            document.getElementById('status').textContent = data.status || 'Desconocido';
+            document.getElementById('progress').textContent = `${data.processed || 0}/${data.total || 0}`;
+            
+            if (data.total && data.total > 0) {
+                const percentage = (data.processed / data.total) * 100;
+                document.getElementById('progressBar').style.width = `${percentage}%`;
+            }
+
+            if (data.log && Array.isArray(data.log)) {
+                data.log.forEach(logEntry => {
+                    addLog(logEntry);
+                });
+            }
+        }
+
+        function startScraping() {
+            addLog('Iniciando proceso de scraping...', 'info');
+            
+            fetch('/api/scrape/start', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentProcessId = data.processId;
+                    isRunning = true;
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    
+                    addLog(`Proceso iniciado con ID: ${data.processId}`, 'success');
+                    
+                    // Start monitoring
+                    statusInterval = setInterval(checkStatus, 2000);
+                } else {
+                    addLog(`Error al iniciar: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                addLog(`Error de conexión: ${error.message}`, 'error');
+            });
+        }
+
+        function stopScraping() {
+            if (!currentProcessId) {
+                addLog('No hay proceso para detener', 'error');
+                return;
+            }
+
+            addLog('Deteniendo proceso...', 'info');
+            
+            fetch(`/api/scrape/stop?processId=${currentProcessId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLog('Proceso detenido correctamente', 'success');
+                    resetControls();
+                } else {
+                    addLog(`Error al detener: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                addLog(`Error de conexión: ${error.message}`, 'error');
+            });
+        }
+
+        function checkStatus() {
+            if (!currentProcessId) return;
+
+            fetch(`/api/scrape/status?processId=${currentProcessId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateStatus(data);
+                        
+                        if (data.completed) {
+                            addLog('Proceso completado', 'success');
+                            resetControls();
+                        }
+                    } else {
+                        addLog(`Error al obtener estado: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    addLog(`Error al monitorear: ${error.message}`, 'error');
+                });
+        }
+
+        function resetControls() {
+            isRunning = false;
+            currentProcessId = null;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            
+            if (statusInterval) {
+                clearInterval(statusInterval);
+                statusInterval = null;
+            }
+        }
+
+        function clearLog() {
+            log.innerHTML = '';
+            addLog('Log limpiado', 'info');
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startScraping);
+        stopBtn.addEventListener('click', stopScraping);
+        statusBtn.addEventListener('click', checkStatus);
+        clearBtn.addEventListener('click', clearLog);
+
+        // Initial log
+        addLog('Sistema de scraping asíncrono listo', 'info');
+    </script>
+</body>
+</html>

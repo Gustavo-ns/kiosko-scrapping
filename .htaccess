@@ -14,21 +14,59 @@
 </IfModule>
 
 # -------------------------------------
-# REDIRECCIÓN AL INDEX PRINCIPAL
+# URLs AMIGABLES
 # -------------------------------------
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
     
-    # Si el archivo o directorio no existe físicamente
+    # Evitar bucles de redirección para archivos que existen
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+      # Evitar bucles para directorios que existen
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+      # Permite acceso directo a carpetas específicas
+    RewriteRule ^(public|images|favicon|css|js|vendor|scripts)/ - [L]
+    
+    # Test rule
+    RewriteRule ^test-rewrite/?$ test-rewrite.php [L]
+    RewriteRule ^test-rewrite/?$ test/test-rewrite.php [L]
+    
+    # URLs amigables específicas
+    RewriteRule ^home/?$ src/index.php [L]
+    RewriteRule ^resumen/?$ src/resumen.php [L]
+    RewriteRule ^api/?$ src/api.php [L]
+    RewriteRule ^importar/?$ scripts/importar_enlaces.php [L]
+    
+    # APIs para AJAX calls
+    RewriteRule ^api/update-record/?$ scripts/update_record.php [L]
+    RewriteRule ^api/grupos/?$ scripts/get_grupos.php [L]
+    RewriteRule ^api/clear-records/?$ scripts/clear_records.php [L]
+    RewriteRule ^api/add-record/?$ scripts/add_record.php [L]
+    RewriteRule ^api/update-visibility/?$ scripts/update_visibility.php [L]
+    RewriteRule ^api/update-melwater/?$ scripts/update_melwater.php [L]
+    RewriteRule ^api/process-bulk-links/?$ scripts/process_bulk_links.php [L]
+    RewriteRule ^scrape/?$ scrape.php [L]
+    
+    # Async scraping API endpoints
+    RewriteRule ^api/scrape/start/?$ public/index.php?route=scrape/start [L]
+    RewriteRule ^api/scrape/stop/?$ public/index.php?route=scrape/stop [L]
+    RewriteRule ^api/scrape/status/?$ public/index.php?route=scrape/status [L]
+    
+    # Redirigir la raíz al home
+    RewriteRule ^$ home [L,R=301]
+    
+    # URLs amigables genéricas - buscar archivos .php en src/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/(src|public|images|favicon|css|js|vendor|scripts)/
+    RewriteRule ^([^/]+)/?$ src/$1.php [L]
     
-    # Redirige todo a src/index.php
-    RewriteRule ^(.*)$ src/index.php [QSA,L]
-    
-    # Permite acceso directo a la carpeta public
-    RewriteRule ^public/ - [L]
+    # Si no encuentra nada, redirigir al home
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ home [L,R=301]
 </IfModule>
 
 # -------------------------------------
@@ -65,7 +103,6 @@
 # FORZAR HTTPS (opcional — comenta si no usás HTTPS)
 # -------------------------------------
 <IfModule mod_rewrite.c>
-    RewriteEngine On
     RewriteCond %{HTTPS} off
     RewriteCond %{HTTP_HOST} !^localhost [NC]
     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

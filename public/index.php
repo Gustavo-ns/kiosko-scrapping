@@ -27,7 +27,7 @@ date_default_timezone_set('America/Boise');
 session_start();
 
 // Enrutamiento básico
-$route = $_GET['route'] ?? 'home';
+$route = isset($_GET['route']) ? $_GET['route'] : 'home';
 
 // Mapeo de rutas a controladores
 $routes = [
@@ -35,11 +35,16 @@ $routes = [
     'resumen' => 'App\Controllers\ResumenController@index',
     'importar' => 'App\Controllers\ImportController@index',
     'scrape' => 'App\Controllers\ScrapeController@index',
+    'scrape/start' => 'App\Controllers\ScrapeController@start',
+    'scrape/stop' => 'App\Controllers\ScrapeController@stop',
+    'scrape/status' => 'App\Controllers\ScrapeController@status',
 ];
 
 // Procesar la ruta
 if (isset($routes[$route])) {
-    [$controller, $method] = explode('@', $routes[$route]);
+    $parts = explode('@', $routes[$route]);
+    $controller = $parts[0];
+    $method = $parts[1];
     if (class_exists($controller)) {
         $instance = new $controller();
         if (method_exists($instance, $method)) {

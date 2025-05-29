@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
   countrySelect.addEventListener('change', loadCovers);
   refreshBtn.addEventListener('click', () => {
     // Opcional: llamar al scraper en el servidor
-    fetch('scrape.php').then(() => loadCovers());
+    fetch('/scrape').then(() => loadCovers());
   });
 
   // Carga inicial

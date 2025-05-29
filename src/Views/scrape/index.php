@@ -53,7 +53,7 @@ document.getElementById('btn-stop').addEventListener('click', function() {
 });
 
 function iniciarScraping() {
-    fetch('?route=scrape/start', {
+    fetch('/api/scrape/start', {
         method: 'POST'
     })
     .then(response => response.json())
@@ -75,7 +75,7 @@ function iniciarScraping() {
 function monitorearProceso() {
     if (!isRunning) return;
     
-    fetch(`?route=scrape/status&processId=${processId}`)
+    fetch(`/api/scrape/status?processId=${processId}`)
         .then(response => response.json())
         .then(data => {
             actualizarProgreso(data);
@@ -94,7 +94,7 @@ function monitorearProceso() {
 }
 
 function detenerScraping() {
-    fetch(`?route=scrape/stop&processId=${processId}`, {
+    fetch(`/api/scrape/stop?processId=${processId}`, {
         method: 'POST'
     })
     .then(response => response.json())
