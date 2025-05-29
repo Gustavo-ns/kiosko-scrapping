@@ -1,11 +1,11 @@
 <?php
 // Versión de los assets para control de caché
-define('ASSETS_VERSION', '1.0.0');
+define('ASSETS_VERSION', '1.0.1');
 
 // Tiempos de caché en segundos
-define('CACHE_TIME_IMAGES', 604800);    // 1 semana
+define('CACHE_TIME_IMAGES', 86400);    // 1 día
 define('CACHE_TIME_STATIC', 86400);     // 1 día
-define('CACHE_TIME_DATA', 1800);        // 30 minutos
+define('CACHE_TIME_DATA', 86400);        // 1 día
 
 /**
  * Establece los headers de caché según el tipo de contenido

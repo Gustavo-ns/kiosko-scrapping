@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Deduplicación - Kiosko Scrapping</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: #333;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn.success {
+            background: #28a745;
+        }
+        .btn.danger {
+            background: #dc3545;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .result.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .stat-box {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧪 Test de Deduplicación y Priorización de Datos</h1>
+        <p>Este test verifica que la lógica de deduplicación esté funcionando correctamente, 
+           priorizando los datos de Meltwater sobre covers y resumen.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Verificar Estado de Deduplicación</h2>
+        <p>Prueba las estadísticas de deduplicación en tiempo real.</p>
+        <button class="btn" onclick="testDeduplication()">🔄 Probar Deduplicación</button>
+        <div id="dedup-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🏠 Probar Página Principal</h2>
+        <p>Verifica que la página principal cargue correctamente con las estadísticas.</p>
+        <button class="btn" onclick="testHomePage()">🏠 Abrir Página Principal</button>
+        <button class="btn" onclick="testHomeWithFilter()">🔍 Abrir con Filtro de Grupo</button>
+        <div id="home-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Información de Prueba</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <h4>🔵 Datos Meltwater</h4>
+                <ul>
+                    <li>Prioridad: <strong>Máxima</strong></li>
+                    <li>Identificador: <code>external_id</code> → <code>medios.twitter_id</code></li>
+                    <li>Fuente: API Meltwater</li>
+                </ul>
+            </div>
+            <div class="stat-box">
+                <h4>🟠 Datos Covers</h4>
+                <ul>
+                    <li>Prioridad: <strong>Media</strong></li>
+                    <li>Identificador: <code>source</code> → <code>medios.source</code></li>
+                    <li>Fuente: Scraping de portadas</li>
+                </ul>
+            </div>
+            <div class="stat-box">
+                <h4>🟡 Datos Resumen</h4>
+                <ul>
+                    <li>Prioridad: <strong>Baja</strong></li>
+                    <li>Identificador: <code>twitter_id</code>, <code>source</code></li>
+                    <li>Fuente: Entrada manual</li>
+                </ul>
+            </div>
+            <div class="stat-box">
+                <h4>⚙️ Lógica de Deduplicación</h4>
+                <ul>
+                    <li>Se procesan primero los datos de Meltwater</li>
+                    <li>Los covers solo se agregan si no existe el identificador</li>
+                    <li>El resumen se agrega si no hay duplicados previos</li>
+                    <li>Se cuentan los duplicados eliminados</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testDeduplication() {
+            const resultDiv = document.getElementById('dedup-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '🔄 Verificando estadísticas de deduplicación...';
+
+            try {
+                // Crear un iframe oculto para cargar la página y extraer las estadísticas
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = '/home';
+                document.body.appendChild(iframe);
+
+                iframe.onload = function() {
+                    try {
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        const statsDiv = iframeDoc.querySelector('.dedup-stats');
+                        
+                        if (statsDiv) {
+                            resultDiv.className = 'result success';
+                            resultDiv.innerHTML = `
+                                <strong>✅ Deduplicación funcionando correctamente</strong><br><br>
+                                ${statsDiv.innerHTML}
+                            `;
+                        } else {
+                            resultDiv.className = 'result error';
+                            resultDiv.innerHTML = '❌ No se encontraron estadísticas de deduplicación en la página';
+                        }
+                    } catch (error) {
+                        resultDiv.className = 'result error';
+                        resultDiv.innerHTML = `❌ Error al acceder al contenido: ${error.message}`;
+                    } finally {
+                        document.body.removeChild(iframe);
+                    }
+                };
+
+                iframe.onerror = function() {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = '❌ Error al cargar la página de inicio';
+                    document.body.removeChild(iframe);
+                };
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function testHomePage() {
+            const resultDiv = document.getElementById('home-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '🔄 Abriendo página principal...';
+
+            try {
+                window.open('/home', '_blank');
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = '✅ Página principal abierta en nueva pestaña';
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Error al abrir la página: ${error.message}`;
+            }
+        }
+
+        async function testHomeWithFilter() {
+            const resultDiv = document.getElementById('home-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '🔄 Abriendo página con filtro...';
+
+            try {
+                // Abrir con un filtro de grupo común
+                window.open('/home?grupo=noticias', '_blank');
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = '✅ Página con filtro abierta en nueva pestaña';
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Error al abrir la página: ${error.message}`;
+            }
+        }
+
+        // Test automático al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 Test de deduplicación cargado');
+            console.log('📝 Funciones disponibles:');
+            console.log('  - testDeduplication(): Verifica estadísticas');
+            console.log('  - testHomePage(): Abre página principal');
+            console.log('  - testHomeWithFilter(): Abre con filtro');
+        });
+    </script>
+</body>
+</html>

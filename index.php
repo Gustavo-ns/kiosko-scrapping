@@ -61,34 +61,149 @@ try {
         WHERE med.visualizar = 1
         ORDER BY c.scraped_at DESC
     ");
-    $covers = $stmt->fetchAll();
-
-   // Obtener los datos de pk_meltwater_resumen
+    $covers = $stmt->fetchAll();   // Obtener los datos de pk_meltwater_resumen
     $stmt = $pdo->query("
         SELECT *, 'resumen' as source_type FROM `pk_meltwater_resumen`
         WHERE visualizar = 1 
     ");
-    $pk_meltwater_resumen = $stmt->fetchAll();
+    $pk_meltwater_resumen = $stmt->fetchAll();    // Función para deduplifcar y priorizar datos de Meltwater
+    function deduplicateAndPrioritize($meltwater_docs, $covers, $pk_meltwater_resumen) {
+        $uniqueDocuments = [];
+        $processedIdentifiers = [];
+        $stats = [
+            'original' => [
+                'meltwater' => count($meltwater_docs),
+                'covers' => count($covers),
+                'resumen' => count($pk_meltwater_resumen),
+                'total' => count($meltwater_docs) + count($covers) + count($pk_meltwater_resumen)
+            ],
+            'processed' => [
+                'meltwater' => 0,
+                'covers' => 0,
+                'resumen' => 0,
+                'duplicates_removed' => 0
+            ]
+        ];
+          // Paso 1: Procesar datos de Meltwater (máxima prioridad)
+        foreach ($meltwater_docs as $doc) {
+            $twitter_id = isset($doc['twitter_id']) ? trim($doc['twitter_id']) : '';
+            $external_id = isset($doc['external_id']) ? trim($doc['external_id']) : '';
+            
+            if (!empty($twitter_id) || !empty($external_id)) {
+                $identifiers = [];
+                if (!empty($twitter_id)) $identifiers[] = 'twitter_' . $twitter_id;
+                if (!empty($external_id)) $identifiers[] = 'external_' . $external_id;
+                
+                $shouldAdd = true;
+                foreach ($identifiers as $identifier) {
+                    if (isset($processedIdentifiers[$identifier])) {
+                        $shouldAdd = false;
+                        break;
+                    }
+                }
+                
+                if ($shouldAdd) {
+                    $uniqueDocuments[] = $doc;
+                    foreach ($identifiers as $identifier) {
+                        $processedIdentifiers[$identifier] = 'meltwater';
+                    }
+                    $stats['processed']['meltwater']++;
+                } else {
+                    $stats['processed']['duplicates_removed']++;
+                }
+            }
+        }
+          // Paso 2: Procesar datos de covers (prioridad media)
+        foreach ($covers as $doc) {
+            $source = isset($doc['source']) ? trim($doc['source']) : '';
+            $twitter_id = isset($doc['twitter_id']) ? trim($doc['twitter_id']) : '';
+            
+            if (!empty($source) || !empty($twitter_id)) {
+                $identifiers = [];
+                if (!empty($twitter_id)) $identifiers[] = 'twitter_' . $twitter_id;
+                if (!empty($source)) $identifiers[] = 'source_' . $source;
+                
+                $shouldAdd = true;
+                foreach ($identifiers as $identifier) {
+                    if (isset($processedIdentifiers[$identifier])) {
+                        $shouldAdd = false;
+                        break;
+                    }
+                }
+                
+                if ($shouldAdd) {
+                    $uniqueDocuments[] = $doc;
+                    foreach ($identifiers as $identifier) {
+                        $processedIdentifiers[$identifier] = 'cover';
+                    }
+                    $stats['processed']['covers']++;
+                } else {
+                    $stats['processed']['duplicates_removed']++;
+                }
+            }
+        }
+          // Paso 3: Procesar datos de resumen (prioridad baja)
+        foreach ($pk_meltwater_resumen as $doc) {
+            $twitter_id = isset($doc['twitter_id']) ? trim($doc['twitter_id']) : '';
+            $source = isset($doc['source']) ? trim($doc['source']) : '';
+            $doc_id = isset($doc['id']) ? $doc['id'] : '';
+            
+            $identifiers = [];
+            if (!empty($twitter_id)) $identifiers[] = 'twitter_' . $twitter_id;
+            if (!empty($source)) $identifiers[] = 'source_' . $source;
+            // Como fallback, usar el ID único del resumen si no hay otros identificadores
+            if (empty($identifiers) && !empty($doc_id)) {
+                $identifiers[] = 'resumen_id_' . $doc_id;
+            }
+            
+            if (!empty($identifiers)) {
+                $shouldAdd = true;
+                foreach ($identifiers as $identifier) {
+                    if (isset($processedIdentifiers[$identifier])) {
+                        $shouldAdd = false;
+                        break;
+                    }
+                }
+                
+                if ($shouldAdd) {
+                    $uniqueDocuments[] = $doc;
+                    foreach ($identifiers as $identifier) {
+                        $processedIdentifiers[$identifier] = 'resumen';
+                    }
+                    $stats['processed']['resumen']++;
+                } else {
+                    $stats['processed']['duplicates_removed']++;
+                }
+            }
+        }
+        
+        $stats['final_count'] = count($uniqueDocuments);
+        
+        return ['documents' => $uniqueDocuments, 'stats' => $stats];
+    }
 
-
-    // Combinar ambos conjuntos de datos
-    $documents = array_merge($meltwater_docs, $covers, $pk_meltwater_resumen);
-
-    // Ordenar por fecha de publicación/scraping
+    // Combinar y deduplicar los datos dando prioridad a Meltwater
+    $deduplication_result = deduplicateAndPrioritize($meltwater_docs, $covers, $pk_meltwater_resumen);
+    $documents = $deduplication_result['documents'];
+    $dedup_stats = $deduplication_result['stats'];    // Ordenar primero por país y luego por DeReach (mayor a menor)
     usort($documents, function($a, $b) {
-        $date_a = isset($a['published_date']) ? $a['published_date'] : 
-                 (isset($a['scraped_at']) ? $a['scraped_at'] : 
-                 (isset($a['created_at']) ? $a['created_at'] : null));
+        // Obtener país (priorizar 'pais' sobre 'country')
+        $pais_a = isset($a['pais']) ? $a['pais'] : (isset($a['country']) ? $a['country'] : '');
+        $pais_b = isset($b['pais']) ? $b['pais'] : (isset($b['country']) ? $b['country'] : '');
         
-        $date_b = isset($b['published_date']) ? $b['published_date'] : 
-                 (isset($b['scraped_at']) ? $b['scraped_at'] : 
-                 (isset($b['created_at']) ? $b['created_at'] : null));
+        // Primer criterio: ordenar por país alfabéticamente
+        $country_comparison = strcasecmp($pais_a, $pais_b);
+        if ($country_comparison !== 0) {
+            return $country_comparison;
+        }
         
-        if (!$date_a && !$date_b) return 0;
-        if (!$date_a) return 1;
-        if (!$date_b) return -1;
+        // Segundo criterio: ordenar por DeReach (mayor a menor)
+        $dereach_a = isset($a['dereach']) ? (float)$a['dereach'] : 0;
+        $dereach_b = isset($b['dereach']) ? (float)$b['dereach'] : 0;
         
-        return strtotime($date_b) - strtotime($date_a);
+        // Orden descendente para DeReach (mayor valor primero)
+        if ($dereach_a == $dereach_b) return 0;
+        return ($dereach_a > $dereach_b) ? -1 : 1;
     });
 
     // Obtener grupos únicos con conteo para el selector
@@ -133,6 +248,9 @@ ob_start();
     <meta name="keywords" content="portadas, periódicos, América Latina, Caribe, noticias, actualidad, prensa, medios de comunicación">
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#ffffff">
+    <meta http-equiv='cache-control' content='no-cache'>
+<meta http-equiv='expires' content='0'>
+<meta http-equiv='pragma' content='no-cache'>
     <title>Portadas de Periódicos</title>
     <style>
         /* Critical CSS */
@@ -259,7 +377,7 @@ ob_start();
             
             // Filtrar documentos por fecha
             $now = new DateTime(); // ahora
-            $yesterdayEvening = new DateTime('yesterday 16:00'); // ayer a las 16:00
+            $yesterdayEvening = new DateTime('yesterday 18:00'); // ayer a las 18:00
             
             $filtered_documents = array_filter($documents, function($doc) use ($yesterdayEvening, $now) {
                 $date_str = null;
@@ -316,9 +434,7 @@ ob_start();
                         </select>
                     </div>
                 </div>
-            <?php endif; ?>
-
-            <button id="refreshBtn">🔄 Actualizar</button>
+            <?php endif; ?>            <button id="refreshBtn">🔄 Actualizar</button>
         </div>
 
         <div id="gallery" class="gallery">
@@ -333,10 +449,10 @@ ob_start();
             foreach ($filtered_documents as $doc): 
                 // Variables comunes
                 $source_type = $doc['source_type'];
-                
-                if ($source_type === 'meltwater') {
+                  if ($source_type === 'meltwater') {
                     // Datos de Meltwater
                     $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
+                    $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : '';
                     $url_destino = isset($doc['url_destino']) ? htmlspecialchars($doc['url_destino']) : '#';
                     $content_image = isset($doc['content_image']) ? htmlspecialchars($doc['content_image']) : '';
                     $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
@@ -353,17 +469,19 @@ ob_start();
                 } elseif ($source_type === 'cover') {
                     // Datos de covers
                     $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
+                    $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : (isset($doc['country']) ? htmlspecialchars($doc['country']) : '');
                     $url_destino = isset($doc['source']) ? htmlspecialchars($doc['source']) : '#';
                     $content_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
                     $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
                     $published_date = isset($doc['scraped_at']) ? htmlspecialchars($doc['scraped_at']) : '';
                     
                     $display_image = $content_image;
-                    $zoom_image = isset($doc['original_link']) ? $doc['original_link'] : $content_image;
+                    $zoom_image = isset($doc['image_url']) ? $doc['image_url'] : $content_image;
                     $external_id = isset($doc['source']) ? htmlspecialchars($doc['source']) : '';
                 } elseif ($source_type === 'resumen') {
                     // Datos de resumen
                     $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : 'otros';
+                    $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : '';
                     $content_image = isset($doc['source']) ? htmlspecialchars($doc['source']) : 'img/resumen-placeholder.jpg';
                     $title = isset($doc['titulo']) ? htmlspecialchars($doc['titulo']) : '(sin título)';
                     $published_date = isset($doc['created_at']) ? date('Y-m-d H:i:s', strtotime($doc['created_at'])) : date('Y-m-d H:i:s');
@@ -383,6 +501,8 @@ ob_start();
                 $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
             ?>
                 <div class="card" 
+                     data-id="<?= $doc['page_url'] ?>"
+                     data-dereach="<?= isset($doc['dereach']) ? htmlspecialchars($doc['dereach']) : '' ?>"
                      data-source-type="<?= $source_type ?>"
                      data-grupo="<?= $grupo ?>" 
                      data-external-id="<?= $external_id ?>"
@@ -397,12 +517,17 @@ ob_start();
                                  fetchpriority="high"
                                  <?php endif; ?>>
                         <?php endif; ?>
-                    </div>
-                    <div class="info">
+                    </div>                    <div class="info">
                         <h3><?= $title ?></h3>
-                        <?php if ($grupo): ?>
+                        <?php if ($grupo || $pais): ?>
                             <small class="medio-info">
-                                <?= $grupo ?>
+                                <?php if ($grupo && $pais): ?>
+                                    <?= $grupo ?> - <?= $pais ?>
+                                <?php elseif ($grupo): ?>
+                                    <?= $grupo ?>
+                                <?php elseif ($pais): ?>
+                                    <?= $pais ?>
+                                <?php endif; ?>
                             </small>
                         <?php endif; ?>
 
