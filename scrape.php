@@ -151,11 +151,10 @@ function saveImageLocally($imageUrl, $country, $alt) {
                 'original' => 'images/covers/' . $original_filename
             ];
         }        // Convertir a WebP y crear versión original
-        if (convertToWebP($tempFile, $original_filepath, 90)) {
-            // Crear miniatura con las nuevas dimensiones
+        if (convertToWebP($tempFile, $original_filepath, 90)) {            // Crear miniatura con las nuevas dimensiones
             if (convertToWebP($tempFile, $thumb_filepath, 80, 600, 900)) {
-                // Crear preview de muy baja calidad para carga rápida inicial
-                if (convertToWebP($tempFile, $preview_filepath, 40, 200, 300)) {
+                // Crear preview de muy baja calidad para carga rápida inicial (320px ancho)
+                if (convertToWebP($tempFile, $preview_filepath, 40, 320, 480)) {
                     unlink($tempFile);
                     error_log("Imagen procesada exitosamente: $original_filename, $thumb_filename y $preview_filename creados");
                     return [
@@ -214,18 +213,36 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
                 $thumbnail_path = $imageResult;
                 $original_path = $imageResult;
             }
-            
-            $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,preview_url,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:pr,:th,:or)");
-            $ins->execute([
-                ':c' => $country, 
-                ':t' => $alt, 
-                ':i' => $thumbnail_path, // Imagen principal (thumbnail)
-                ':s' => $sourceLink, 
-                ':l' => $urlImg,
-                ':pr' => $preview_path,   // Ruta del preview (muy baja calidad)
-                ':th' => $thumbnail_path, // Ruta del thumbnail
-                ':or' => $original_path   // Ruta del original
-            ]);
+              try {
+                $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,preview_url,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:pr,:th,:or)");
+                $ins->execute([
+                    ':c' => $country, 
+                    ':t' => $alt, 
+                    ':i' => $thumbnail_path, // Imagen principal (thumbnail)
+                    ':s' => $sourceLink, 
+                    ':l' => $urlImg,
+                    ':pr' => $preview_path,   // Ruta del preview (muy baja calidad)
+                    ':th' => $thumbnail_path, // Ruta del thumbnail
+                    ':or' => $original_path   // Ruta del original
+                ]);
+            } catch (PDOException $e) {
+                // If preview_url column doesn't exist, fallback to old structure
+                if (strpos($e->getMessage(), 'preview_url') !== false) {
+                    error_log("Fallback: usando estructura antigua sin preview_url para $sourceLink");
+                    $ins_fallback = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:th,:or)");
+                    $ins_fallback->execute([
+                        ':c' => $country, 
+                        ':t' => $alt, 
+                        ':i' => $thumbnail_path,
+                        ':s' => $sourceLink, 
+                        ':l' => $urlImg,
+                        ':th' => $thumbnail_path,
+                        ':or' => $original_path
+                    ]);
+                } else {
+                    throw $e; // Re-throw if it's a different error
+                }
+            }
         }
     }
 }

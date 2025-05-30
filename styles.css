@@ -42,6 +42,11 @@ body {
   background: #00e0c0;
 }
 
+#refreshBtn:focus {
+  outline: 3px solid #0066cc; /* High contrast focus indicator */
+  outline-offset: 2px;
+}
+
 #countrySelect, #grupoSelect {
   font-size: 1.2rem;
   padding: 0.5rem 1rem;
@@ -53,8 +58,10 @@ body {
   transition: border-color 0.3s;
 }
 
-#countrySelect:hover, #countrySelect:focus {
+#countrySelect:hover, #countrySelect:focus, #grupoSelect:hover, #grupoSelect:focus {
   border-color: #00ffd5;
+  outline: 3px solid #0066cc; /* High contrast focus indicator */
+  outline-offset: 2px;
 }
 
 .gallery {
@@ -107,6 +114,16 @@ body {
   contain-intrinsic-size: 500px 300px;
   display: grid;
   grid-template-rows: auto 1fr;
+}
+
+.card:focus {
+  outline: 3px solid #3498db; /* High contrast focus indicator */
+  outline-offset: 2px;
+}
+
+.card:focus-visible {
+  outline: 3px solid #3498db;
+  outline-offset: 2px;
 }
 
 .image-container {
@@ -195,20 +212,22 @@ body {
   position: absolute;
   bottom: 0;
   right: 0;
-  background: rgb(226 255 0);
-  color: #fff;
+  background: #2c3e50; /* Dark blue-gray for better contrast */
+  color: #ffffff; /* Pure white for maximum contrast */
   padding: 6px;
   border-radius: 50% 0 0 50%;
   font-size: 2em;
   cursor: pointer;
   z-index: 2;
-  transition: padding 0.3s;
+  transition: all 0.3s ease;
+  border: 2px solid #34495e;
 }
 
 .card .zoom-icon:hover {
   transform: scale(1.2);
   padding-right: .6em;
-  background: linear-gradient(45deg, #eaff00, #ff00d4);
+  background: #1a252f; /* Even darker on hover */
+  border-color: #2c3e50;
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 0, 212, 0.6);
   transition: transform 0.3s ease, padding 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
@@ -403,10 +422,10 @@ body {
 .footer-reload-btn {
   font-size: 1.2rem;
   padding: 0.5rem 1rem;
-  background: #ff6b35;
-  border: none;
+  background: #2c3e50; /* Darker blue-gray for better contrast */
+  border: 2px solid #34495e;
   border-radius: 8px;
-  color: white;
+  color: #ffffff; /* Pure white for maximum contrast */
   cursor: pointer;
   transition: all 0.3s ease;
   font-family: 'Bebas Neue', sans-serif;
@@ -417,9 +436,15 @@ body {
 }
 
 .footer-reload-btn:hover {
-  background: #e55d2b;
+  background: #1a252f; /* Even darker on hover */
+  border-color: #2c3e50;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.footer-reload-btn:focus {
+  outline: 3px solid #3498db; /* High contrast focus indicator */
+  outline-offset: 2px;
 }
 
 .footer-reload-btn:active {

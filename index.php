@@ -276,8 +276,8 @@ ob_start();
     </script>
     
     <title>Portadas de Periódicos</title>
-    
-    <?php    // Preload de las primeras imágenes críticas para mejor PageSpeed
+      <?php    
+    // Preload de las primeras imágenes críticas para mejor LCP
     // Debug: Verificar si $filtered_documents está definido
     if (!isset($filtered_documents)) {
         $filtered_documents = [];
@@ -288,11 +288,23 @@ ob_start();
         $source_type = $doc['source_type'];
         $image_url = '';
           if ($source_type === 'meltwater' && isset($doc['content_image'])) {
-            $image_url = $doc['content_image'];
+            // Para Meltwater, tratar de obtener la imagen original si existe
+            $external_id = isset($doc['external_id']) ? $doc['external_id'] : '';
+            if ($external_id) {
+                $original_path = "images/melwater/{$external_id}_original.webp";
+                if (file_exists($original_path)) {
+                    $image_url = $original_path;
+                } else {
+                    $image_url = $doc['content_image'];
+                }
+            } else {
+                $image_url = $doc['content_image'];
+            }
         } elseif ($source_type === 'cover') {
-            // Usar thumbnail para preload en covers con nueva estructura
-            $image_url = isset($doc['thumbnail_url']) ? $doc['thumbnail_url'] : 
-                        (isset($doc['image_url']) ? $doc['image_url'] : '');
+            // Para covers, usar la imagen original de alta calidad
+            $image_url = isset($doc['original_url']) ? $doc['original_url'] : 
+                        (isset($doc['thumbnail_url']) ? $doc['thumbnail_url'] :
+                        (isset($doc['image_url']) ? $doc['image_url'] : ''));
         } elseif ($source_type === 'resumen' && isset($doc['source'])) {
             $image_url = $doc['source'];
         }
@@ -522,12 +534,11 @@ ob_start();
                     $image_paths = '';
                     if ($content_image) {
                         $image_paths = downloadImage($content_image, $external_id);
-                    }
-                    
-                    if ($image_paths && is_array($image_paths)) {
+                    }                  if ($image_paths && is_array($image_paths)) {
                         $preview_image = isset($image_paths['preview']) ? $image_paths['preview'] : $content_image;
-                        $display_image = $preview_image; // Start with low quality preview
                         $final_image = $image_paths['original']; // Final high quality image
+                        // Progressive loading: Use preview for non-critical, high quality for critical
+                        $display_image = $preview_image; // Start with preview for progressive loading
                     } else {
                         $preview_image = $content_image;
                         $display_image = $content_image;
@@ -543,12 +554,11 @@ ob_start();
                     $preview_url = isset($doc['preview_url']) ? htmlspecialchars($doc['preview_url']) : '';
                     $thumbnail_url = isset($doc['thumbnail_url']) ? htmlspecialchars($doc['thumbnail_url']) : '';
                     $original_url = isset($doc['original_url']) ? htmlspecialchars($doc['original_url']) : '';
-                    $fallback_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
-                      // Progressive loading: start with preview, then load original
+                    $fallback_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';                    // Progressive loading: Use preview for non-critical, high quality for critical
                     $preview_image = $preview_url ?: $fallback_image;
                     $content_image = $original_url ?: $fallback_image;
-                    $display_image = $preview_image; // Start with low quality preview
                     $final_image = $original_url ?: $fallback_image; // Final high quality image
+                    $display_image = $preview_image; // Start with preview for progressive loading
                     $external_id = isset($doc['source']) ? htmlspecialchars($doc['source']) : '';
                 } elseif ($source_type === 'resumen') {
                     // Datos de resumen
@@ -576,16 +586,31 @@ ob_start();
                      data-source-type="<?= $source_type ?>"
                      data-grupo="<?= $grupo ?>" 
                      data-external-id="<?= $external_id ?>"
-                     data-published-date="<?= $published_date ?>">                    <div class="image-container" id="img-container-<?= $image_count ?>">                        <?php if ($content_image): ?>
+                     data-published-date="<?= $published_date ?>">                    <div class="image-container" id="img-container-<?= $image_count ?>">                        <?php if ($content_image): ?>                            <?php 
+                            // For critical images (first 6), use high quality directly for LCP optimization
+                            $is_critical = $image_count <= 6;
+                            
+                            if ($is_critical) {
+                                // Critical images: Load high quality immediately for better LCP
+                                $img_src = $final_image;
+                                $use_progressive = false;
+                            } else {
+                                // Non-critical images: Start with preview, upgrade to high quality
+                                $img_src = $display_image;
+                                $use_progressive = isset($final_image) && $final_image !== $display_image;
+                            }
+                            ?>
                             <img loading="<?= $loading_strategy ?>" 
-                                 src="<?= $display_image ?>?v=<?= ASSETS_VERSION ?>" 
-                                 data-final-src="<?= isset($final_image) ? $final_image : $content_image ?>?v=<?= ASSETS_VERSION ?>"
+                                 src="<?= $img_src ?>?v=<?= ASSETS_VERSION ?>" 
+                                 <?php if ($use_progressive): ?>
+                                 data-final-src="<?= $final_image ?>?v=<?= ASSETS_VERSION ?>"
                                  data-progressive="true"
-                                 alt="<?= $title ?>" 
                                  class="progressive-image"
+                                 <?php endif; ?>
+                                 alt="<?= $title ?>" 
                                  onload="this.parentElement.classList.add('loaded')"
                                  onerror="this.parentElement.classList.add('loaded')"
-                                 <?php if ($image_count <= 6): ?>
+                                 <?php if ($is_critical): ?>
                                  fetchpriority="high"
                                  <?php endif; ?>><?php /* Zoom icon hidden as requested
                             if ($zoom_image && $zoom_image !== $display_image): ?>
