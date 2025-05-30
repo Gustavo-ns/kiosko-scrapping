@@ -28,10 +28,13 @@ if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
 }
 require 'vendor/autoload.php';
 
-// Validar Imagick
-if (!extension_loaded('imagick')) {
-    die("La extensión Imagick no está habilitada.\n");
+// Validar extensiones de procesamiento de imágenes
+if (!extension_loaded('imagick') && !extension_loaded('gd')) {
+    die("Se requiere Imagick o GD para el procesamiento de imágenes.\n");
 }
+
+// Incluir procesador optimizado de imágenes
+require_once 'optimized-image-processor.php';
 
 $config = require 'config.php';
 
@@ -95,14 +98,8 @@ function checkImageMagickSupport() {
 }
 
 function saveImageLocally($imageUrl, $country, $alt) {
-    static $checkedSupport = false;
-    if (!$checkedSupport) {
-        checkImageMagickSupport();
-        $checkedSupport = true;
-    }
-
     $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid();
-    $savePath = __DIR__ . "/images/$filename";
+    $savePath = __DIR__ . "/images/";
 
     // Usar Guzzle para la descarga con timeout y manejo de errores
     global $guzzle;
@@ -118,83 +115,30 @@ function saveImageLocally($imageUrl, $country, $alt) {
     file_put_contents($tempFile, $imageData);
 
     try {
-        // Verificar que el archivo sea una imagen válida
-        $info = @getimagesize($tempFile);
-        if ($info === false) {
-            throw new Exception("Archivo no válido como imagen");
-        }
-
-        $mime = $info['mime'];
-        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($mime, $allowedMimes)) {
-            throw new Exception("Formato de imagen no soportado ($mime)");
-        }
-
-        // Crear objeto Imagick con manejo de errores específico
-        $imagick = new Imagick();
+        // Usar el procesador optimizado que aprovecha las capacidades del servidor
+        $result = processOptimizedImage($tempFile, $savePath, [
+            'max_width' => 325,
+            'max_height' => 500,
+            'quality' => 85,
+            'prefer_webp' => true, // Intentar WebP si está disponible
+            'strip_metadata' => true
+        ]);
         
-        // Establecer límites de memoria y tiempo
-        $imagick->setResourceLimit(Imagick::RESOURCETYPE_MEMORY, 256 * 1024 * 1024); // 256MB
-        $imagick->setResourceLimit(Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024); // 256MB
-        
-        // Cargar la imagen
-        $imagick->readImage($tempFile);
-        
-        // Verificar si la imagen se cargó correctamente
-        if (!$imagick->valid()) {
-            throw new Exception("La imagen no es válida después de cargarla");
-        }
-
-        // Convertir a RGB si es CMYK
-        if ($imagick->getImageColorspace() === Imagick::COLORSPACE_CMYK) {
-            $imagick->transformImageColorspace(Imagick::COLORSPACE_SRGB);
-        }
-
-        // Eliminar perfiles de color y metadatos para reducir tamaño
-        $imagick->stripImage();
-        
-        // Usar JPEG por defecto ya que WebP no está soportado
-        $imagick->setImageFormat('jpeg');
-        $imagick->setImageCompressionQuality(85);
-        $finalPath = $savePath . '.jpg';
-        
-        // Redimensionar si es necesario
-        $width = $imagick->getImageWidth();
-        $height = $imagick->getImageHeight();
-        
-        if ($width > 325 || $height > 500) {
-            $imagick->resizeImage(325, 500, Imagick::FILTER_LANCZOS, 1, true);
-        }
-        
-        // Optimizar memoria antes de guardar
-        $imagick->optimizeImageLayers();
-        
-        // Intentar guardar la imagen
-        if (!$imagick->writeImage($finalPath)) {
-            throw new Exception("No se pudo guardar la imagen");
-        }
-        
-        // Verificar que el archivo se guardó correctamente
-        if (!file_exists($finalPath) || filesize($finalPath) < 1024) {
-            throw new Exception("El archivo guardado no es válido");
-        }
-        
-        // Limpiar
-        $imagick->clear();
-        $imagick->destroy();
+        // Limpiar archivo temporal
         unlink($tempFile);
         
-        return "images/" . basename($finalPath);
+        if ($result['success']) {
+            error_log("Imagen procesada exitosamente: " . basename($result['output_path']) . 
+                     " (" . $result['format_used'] . ", " . $result['savings_percent'] . "% ahorro)");
+            return "images/" . basename($result['output_path']);
+        } else {
+            error_log("Error procesando imagen: $imageUrl - " . $result['error']);
+            return false;
+        }
         
-    } catch (ImagickException $e) {
-        error_log("Error de Imagick procesando la imagen: $imageUrl - " . $e->getMessage());
-        if (file_exists($tempFile)) unlink($tempFile);
-        if (isset($finalPath) && file_exists($finalPath)) unlink($finalPath);
-        return false;
     } catch (Exception $e) {
         error_log("Error procesando la imagen: $imageUrl - " . $e->getMessage());
         if (file_exists($tempFile)) unlink($tempFile);
-        if (isset($finalPath) && file_exists($finalPath)) unlink($finalPath);
         return false;
     }
 }
@@ -297,11 +241,10 @@ foreach ($config['sites'] as $country => $configs) {
             $alt = 'Portada';
             $fullUri = $conf['url'];
 
-            if (!empty($conf['custom_extractor'])) {
-                switch ($conf['custom_extractor']) {
+            if (!empty($conf['custom_extractor'])) {                switch ($conf['custom_extractor']) {
                     case 'extractWithXPath':
-                        $xpath = $conf['xpath'] ?? '//img';
-                        $attr = $conf['attribute'] ?? 'src';
+                        $xpath = isset($conf['xpath']) ? $conf['xpath'] : '//img';
+                        $attr = isset($conf['attribute']) ? $conf['attribute'] : 'src';
                         $urlImg = extractWithXPath($conf['url'], $xpath, $attr);
                         if ($urlImg) $urlImg = makeAbsoluteUrl($conf['url'], $urlImg);
                         break;
