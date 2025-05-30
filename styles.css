@@ -375,7 +375,73 @@ body {
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Footer con botón de recarga forzada */
+.footer-reload {
+  background: #1e1e1e;
+  padding: 1rem;
+  margin-top: 2rem;
+  border-top: 3px solid #ff6b35;
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.last-update-info {
+  flex: 1;
+}
+
+.last-update-info small {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.footer-reload-btn {
+  font-size: 1.2rem;
+  padding: 0.5rem 1rem;
+  background: #ff6b35;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Bebas Neue', sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.footer-reload-btn:hover {
+  background: #e55d2b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.footer-reload-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Responsive design para el footer */
+@media (max-width: 768px) {
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .last-update-info {
+    order: 2;
+    margin-top: 0.5rem;
+  }
+  
+  .footer-reload-btn {
+    order: 1;
+    width: 100%;
+    max-width: 300px;
+  }
 }

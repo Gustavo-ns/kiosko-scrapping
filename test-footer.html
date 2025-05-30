@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Footer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div style="height: 100vh; background: #f4f4f4; padding: 2rem;">
+        <h1>Test del Footer</h1>
+        <p>Esta página es para probar el footer con el botón de recarga forzada.</p>
+    </div>
+
+    <!-- Footer con botón de recarga forzada -->
+    <footer class="footer-reload">
+        <div class="footer-content">
+            <div class="last-update-info">
+                <small>Última actualización: 30/05/2025 14:30</small>
+            </div>
+            <button id="footerForceReloadBtn" onclick="testReload()" class="footer-reload-btn">
+                ⚡ Recarga Forzada
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        function testReload() {
+            alert('¡Función de recarga forzada funcionando!');
+            console.log('Botón de recarga forzada presionado');
+        }
+    </script>
+</body>
+</html>

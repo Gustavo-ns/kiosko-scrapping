@@ -1,6 +1,6 @@
 <?php
 // Versión de los assets para control de caché
-define('ASSETS_VERSION', '1.0.1');
+define('ASSETS_VERSION', '1.0.13');
 
 // Tiempos de caché en segundos
 define('CACHE_TIME_IMAGES', 86400);    // 1 día

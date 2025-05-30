@@ -493,7 +493,7 @@ ob_start();
                         </select>
                     </div>                </div>
             <?php endif; ?>            <button id="refreshBtn" style="display: none;">🔄 Actualizar</button>
-        </div>        <div id="gallery" class="gallery">
+        </div><div id="gallery" class="gallery">
             <?php
             // Debug: mostrar información de los documentos
             echo "<!-- Debug: Total documentos: " . count($documents) . " -->";
@@ -560,14 +560,13 @@ ob_start();
                 static $image_count = 0;
                 $image_count++;
                 $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
-            ?>
-                <div class="card" 
-                     data-id="<?= isset($doc['page_url']) ? htmlspecialchars($doc['page_url']) : '' ?>"
+            ?>                <div class="card" 
+                     data-id="<?= $external_id ? htmlspecialchars($external_id) : ($url_destino ? htmlspecialchars($url_destino) : '') ?>"
                      data-dereach="<?= isset($doc['dereach']) ? htmlspecialchars($doc['dereach']) : '' ?>"
                      data-source-type="<?= $source_type ?>"
                      data-grupo="<?= $grupo ?>" 
                      data-external-id="<?= $external_id ?>"
-                     data-published-date="<?= $published_date ?>">                    <div class="image-container" id="img-container-<?= $image_count ?>">
+                     data-published-date="<?= $published_date ?>"><div class="image-container" id="img-container-<?= $image_count ?>">
                         <?php if ($content_image): ?>
                             <img loading="<?= $loading_strategy ?>" 
                                  src="<?= $zoom_image ?>?v=<?= ASSETS_VERSION ?>" 
@@ -601,13 +600,30 @@ ob_start();
                 </div>
             <?php endforeach; ?>
         </div>
-    </div>
-
-    <div id="imageModal" class="modal">
+    </div>    <div id="imageModal" class="modal">
         <span class="close">&times;</span>
         <div class="loader" id="modalLoader"></div>
         <img id="modalImage" alt="Imagen en modal" style="display: none;">
-    </div>    <script>
+    </div>
+
+    <!-- Footer con botón de recarga forzada -->
+    <footer class="footer-reload">
+        <?php
+        // Obtener la última fecha de actualización
+        $last_update_stmt = $pdo->query("SELECT MAX(published_date) as last_update FROM pk_melwater");
+        $last_update_result = $last_update_stmt->fetch(PDO::FETCH_ASSOC);
+        $last_update_date = $last_update_result['last_update'] ? date('d/m/Y H:i', strtotime($last_update_result['last_update'])) : 'No disponible';
+        ?>
+        
+        <div class="footer-content">
+            <div class="last-update-info">
+                <small>Última actualización: <?= $last_update_date ?></small>
+            </div>
+            <button id="footerForceReloadBtn" onclick="forceReload()" class="footer-reload-btn">
+                ⚡ Recarga Forzada
+            </button>
+        </div>
+    </footer><script>
         // Optimización de preload para PageSpeed
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('service-worker.js')
@@ -800,14 +816,32 @@ ob_start();
                         // Observer no disponible en este navegador
                     }
                 }
-            });
-
-            // Log final de rendimiento
+            });            // Log final de rendimiento
             window.addEventListener('load', () => {
                 const loadTime = performance.now() - perfStart;
                 console.log(`Aplicación completamente cargada en ${loadTime.toFixed(2)}ms`);
             });
         });
+
+        // Función para forzar recarga (testing)
+        function forceReload() {
+            // Limpiar todas las cachés posibles del navegador
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                });
+            }
+            
+            // Agregar timestamp para evitar caché
+            const url = new URL(window.location);
+            url.searchParams.set('_t', Date.now());
+            url.searchParams.set('_cache_bust', Math.random().toString(36).substr(2, 9));
+            
+            // Forzar recarga completa
+            window.location.href = url.toString();
+        }
     </script>
 </body>
 </html><?php
