@@ -445,3 +445,35 @@ body {
     max-width: 300px;
   }
 }
+
+/* Progressive image loading styles */
+.progressive-image {
+  transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out;
+  filter: blur(0px);
+}
+
+.progressive-image.loading-high-quality {
+  filter: blur(1px);
+  opacity: 0.8;
+}
+
+.progressive-image.high-quality-loaded {
+  filter: blur(0px);
+  opacity: 1;
+}
+
+/* Subtle loading indicator for progressive images */
+.image-container.progressive-loading::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 2;
+}

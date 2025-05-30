@@ -114,7 +114,8 @@ function saveImageLocally($imageUrl, $country, $alt) {
     // Crear estructura de directorios como Meltwater
     $upload_dir = __DIR__ . '/images/covers';
     $thumb_dir = $upload_dir . '/thumbnails';
-    foreach ([$upload_dir, $thumb_dir] as $dir) {
+    $preview_dir = $upload_dir . '/previews';
+    foreach ([$upload_dir, $thumb_dir, $preview_dir] as $dir) {
         if (!file_exists($dir)) {
             mkdir($dir, 0755, true);
         }
@@ -133,32 +134,36 @@ function saveImageLocally($imageUrl, $country, $alt) {
     $tempFile = tempnam(sys_get_temp_dir(), 'img_');
     file_put_contents($tempFile, $imageData);
 
-    try {
-        // Definir rutas de archivos
+    try {        // Definir rutas de archivos
         $original_filename = $filename . '_original.webp';
         $thumb_filename = $filename . '_thumb.webp';
+        $preview_filename = $filename . '_preview.webp';
         $original_filepath = $upload_dir . '/' . $original_filename;
         $thumb_filepath = $thumb_dir . '/' . $thumb_filename;
+        $preview_filepath = $preview_dir . '/' . $preview_filename;
 
-        // Si ya existen los archivos, devolverlos
-        if (file_exists($original_filepath) && file_exists($thumb_filepath)) {
+        // Si ya existen todos los archivos, devolverlos
+        if (file_exists($original_filepath) && file_exists($thumb_filepath) && file_exists($preview_filepath)) {
             unlink($tempFile);
             return [
+                'preview' => 'images/covers/previews/' . $preview_filename,
                 'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
                 'original' => 'images/covers/' . $original_filename
             ];
-        }
-
-        // Convertir a WebP y crear versión original
+        }        // Convertir a WebP y crear versión original
         if (convertToWebP($tempFile, $original_filepath, 90)) {
             // Crear miniatura con las nuevas dimensiones
             if (convertToWebP($tempFile, $thumb_filepath, 80, 600, 900)) {
-                unlink($tempFile);
-                error_log("Imagen procesada exitosamente: $original_filename y $thumb_filename creados");
-                return [
-                    'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
-                    'original' => 'images/covers/' . $original_filename
-                ];
+                // Crear preview de muy baja calidad para carga rápida inicial
+                if (convertToWebP($tempFile, $preview_filepath, 40, 200, 300)) {
+                    unlink($tempFile);
+                    error_log("Imagen procesada exitosamente: $original_filename, $thumb_filename y $preview_filename creados");
+                    return [
+                        'preview' => 'images/covers/previews/' . $preview_filename,
+                        'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
+                        'original' => 'images/covers/' . $original_filename
+                    ];
+                }
             }
         }
         
@@ -198,23 +203,26 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
     if (!$stmt->fetchColumn()) {
         $imageResult = saveImageLocally($urlImg, $country, $alt);
         if ($imageResult) {
-            // Si es un array (nueva estructura), usar thumbnail como imagen principal
+            // Si es un array (nueva estructura), usar las diferentes versiones
             if (is_array($imageResult)) {
+                $preview_path = isset($imageResult['preview']) ? $imageResult['preview'] : null;
                 $thumbnail_path = $imageResult['thumbnail'];
                 $original_path = $imageResult['original'];
             } else {
                 // Compatibilidad con estructura antigua
+                $preview_path = null;
                 $thumbnail_path = $imageResult;
                 $original_path = $imageResult;
             }
             
-            $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:th,:or)");
+            $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,preview_url,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:pr,:th,:or)");
             $ins->execute([
                 ':c' => $country, 
                 ':t' => $alt, 
                 ':i' => $thumbnail_path, // Imagen principal (thumbnail)
                 ':s' => $sourceLink, 
                 ':l' => $urlImg,
+                ':pr' => $preview_path,   // Ruta del preview (muy baja calidad)
                 ':th' => $thumbnail_path, // Ruta del thumbnail
                 ':or' => $original_path   // Ruta del original
             ]);

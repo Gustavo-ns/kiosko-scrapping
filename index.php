@@ -518,29 +518,37 @@ ob_start();
                     $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
                     $external_id = isset($doc['external_id']) ? htmlspecialchars($doc['external_id']) : '';
                     $published_date = isset($doc['published_date']) ? htmlspecialchars($doc['published_date']) : '';
-                    
-                    // Procesar imagen
+                      // Procesar imagen con carga progresiva
                     $image_paths = '';
                     if ($content_image) {
                         $image_paths = downloadImage($content_image, $external_id);
                     }
-                    $display_image = $image_paths ? $image_paths['thumbnail'] : $content_image;
-                    $zoom_image = $image_paths ? $image_paths['original'] : $content_image;                } elseif ($source_type === 'cover') {
+                    
+                    if ($image_paths && is_array($image_paths)) {
+                        $preview_image = isset($image_paths['preview']) ? $image_paths['preview'] : $content_image;
+                        $display_image = $preview_image; // Start with low quality preview
+                        $final_image = $image_paths['original']; // Final high quality image
+                    } else {
+                        $preview_image = $content_image;
+                        $display_image = $content_image;
+                        $final_image = $content_image;
+                    }} elseif ($source_type === 'cover') {
                     // Datos de covers - usando nueva estructura organizada
                     $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
                     $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : (isset($doc['country']) ? htmlspecialchars($doc['country']) : '');
                     $url_destino = isset($doc['source']) ? htmlspecialchars($doc['source']) : '#';
                     $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
                     $published_date = isset($doc['scraped_at']) ? htmlspecialchars($doc['scraped_at']) : '';
-                    
-                    // Usar nueva estructura de thumbnails y originales
+                      // Usar nueva estructura de previews, thumbnails y originales
+                    $preview_url = isset($doc['preview_url']) ? htmlspecialchars($doc['preview_url']) : '';
                     $thumbnail_url = isset($doc['thumbnail_url']) ? htmlspecialchars($doc['thumbnail_url']) : '';
                     $original_url = isset($doc['original_url']) ? htmlspecialchars($doc['original_url']) : '';
                     $fallback_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
-                      // Use original images for display (was using thumbnails before)
+                      // Progressive loading: start with preview, then load original
+                    $preview_image = $preview_url ?: $fallback_image;
                     $content_image = $original_url ?: $fallback_image;
-                    $display_image = $original_url ?: $fallback_image;
-                    $zoom_image = $original_url ?: $fallback_image;
+                    $display_image = $preview_image; // Start with low quality preview
+                    $final_image = $original_url ?: $fallback_image; // Final high quality image
                     $external_id = isset($doc['source']) ? htmlspecialchars($doc['source']) : '';
                 } elseif ($source_type === 'resumen') {
                     // Datos de resumen
@@ -550,9 +558,8 @@ ob_start();
                     $title = isset($doc['titulo']) ? htmlspecialchars($doc['titulo']) : '(sin título)';
                     $published_date = isset($doc['created_at']) ? date('Y-m-d H:i:s', strtotime($doc['created_at'])) : date('Y-m-d H:i:s');
                     $external_id = isset($doc['twitter_id']) ? htmlspecialchars($doc['twitter_id']) : '';
-                    
-                    $display_image = $content_image;
-                    $zoom_image = $content_image;
+                      $display_image = $content_image;
+                    $final_image = $content_image;
                     $url_destino = !empty($external_id) ? 'https://twitter.com/i/status/' . $external_id : '#';
                 }
 
@@ -569,16 +576,18 @@ ob_start();
                      data-source-type="<?= $source_type ?>"
                      data-grupo="<?= $grupo ?>" 
                      data-external-id="<?= $external_id ?>"
-                     data-published-date="<?= $published_date ?>">                    <div class="image-container" id="img-container-<?= $image_count ?>">
-                        <?php if ($content_image): ?>
+                     data-published-date="<?= $published_date ?>">                    <div class="image-container" id="img-container-<?= $image_count ?>">                        <?php if ($content_image): ?>
                             <img loading="<?= $loading_strategy ?>" 
                                  src="<?= $display_image ?>?v=<?= ASSETS_VERSION ?>" 
+                                 data-final-src="<?= isset($final_image) ? $final_image : $content_image ?>?v=<?= ASSETS_VERSION ?>"
+                                 data-progressive="true"
                                  alt="<?= $title ?>" 
+                                 class="progressive-image"
                                  onload="this.parentElement.classList.add('loaded')"
                                  onerror="this.parentElement.classList.add('loaded')"
                                  <?php if ($image_count <= 6): ?>
                                  fetchpriority="high"
-                                 <?php endif; ?>>                            <?php /* Zoom icon hidden as requested
+                                 <?php endif; ?>><?php /* Zoom icon hidden as requested
                             if ($zoom_image && $zoom_image !== $display_image): ?>
                                 <div class="zoom-icon" data-img="<?= htmlspecialchars($zoom_image) ?>">🔍</div>
                             <?php endif; */ ?>
@@ -682,10 +691,61 @@ ob_start();
                 }, {
                     rootMargin: '50px 0px',
                     threshold: 0.1
-                });
+                });                lazyImages.forEach(img => imageObserver.observe(img));
+            }
 
-                lazyImages.forEach(img => imageObserver.observe(img));
-            }// 3. Configuración del modal de imágenes
+            // 2.5. Progressive image loading - upgrade from preview to high quality
+            function setupProgressiveImageLoading() {
+                const progressiveImages = document.querySelectorAll('img[data-progressive="true"]');
+                
+                progressiveImages.forEach(img => {
+                    const finalSrc = img.dataset.finalSrc;
+                    const container = img.parentElement;
+                    
+                    // Skip if already loading or loaded high quality
+                    if (img.dataset.progressiveState === 'loading' || img.dataset.progressiveState === 'loaded') {
+                        return;
+                    }
+                    
+                    // Mark as loading high quality version
+                    img.dataset.progressiveState = 'loading';
+                    img.classList.add('loading-high-quality');
+                    container.classList.add('progressive-loading');
+                    
+                    // Create new image to preload high quality version
+                    const highQualityImg = new Image();
+                    
+                    highQualityImg.onload = () => {
+                        // Smoothly transition to high quality image
+                        img.src = finalSrc;
+                        img.classList.remove('loading-high-quality');
+                        img.classList.add('high-quality-loaded');
+                        container.classList.remove('progressive-loading');
+                        img.dataset.progressiveState = 'loaded';
+                    };
+                    
+                    highQualityImg.onerror = () => {
+                        // If high quality fails, keep the preview
+                        img.classList.remove('loading-high-quality');
+                        container.classList.remove('progressive-loading');
+                        img.dataset.progressiveState = 'error';
+                    };
+                    
+                    // Start loading high quality image
+                    highQualityImg.src = finalSrc;
+                });
+            }
+            
+            // Start progressive loading after critical images are loaded
+            document.addEventListener('criticalImagesLoaded', () => {
+                // Delay progressive loading to avoid competing with critical images
+                setTimeout(setupProgressiveImageLoading, 500);
+            });
+            
+            // Also trigger progressive loading after page load as fallback
+            window.addEventListener('load', () => {
+                setTimeout(setupProgressiveImageLoading, 1000);
+            });// 3. Configuración del modal de imágenes
             const imageModal = document.getElementById('imageModal');
             const modalImage = document.getElementById('modalImage');
             const modalLoader = document.getElementById('modalLoader');

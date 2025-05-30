@@ -87,7 +87,8 @@ function downloadImage($url, $external_id) {
     // Crear directorios si no existen
     $upload_dir = 'images/melwater';
     $thumb_dir = $upload_dir . '/thumbnails';
-    foreach ([$upload_dir, $thumb_dir] as $dir) {
+    $preview_dir = $upload_dir . '/previews';
+    foreach ([$upload_dir, $thumb_dir, $preview_dir] as $dir) {
         if (!file_exists($dir)) {
             mkdir($dir, 0755, true);
         }
@@ -96,12 +97,15 @@ function downloadImage($url, $external_id) {
     // Definir rutas de archivos
     $original_filename = $external_id . '_original.webp';
     $thumb_filename = $external_id . '_thumb.webp';
+    $preview_filename = $external_id . '_preview.webp';
     $original_filepath = $upload_dir . '/' . $original_filename;
     $thumb_filepath = $thumb_dir . '/' . $thumb_filename;
+    $preview_filepath = $preview_dir . '/' . $preview_filename;
 
-    // Si ambos archivos existen, retornar las rutas
-    if (file_exists($original_filepath) && file_exists($thumb_filepath)) {
+    // Si todos los archivos existen, retornar las rutas
+    if (file_exists($original_filepath) && file_exists($thumb_filepath) && file_exists($preview_filepath)) {
         return [
+            'preview' => $preview_filepath,
             'thumbnail' => $thumb_filepath,
             'original' => $original_filepath
         ];
@@ -119,16 +123,19 @@ function downloadImage($url, $external_id) {
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if ($http_code === 200 && $image_data) {
-            // Guardar imagen temporal
+        if ($http_code === 200 && $image_data) {            // Guardar imagen temporal
             if (file_put_contents($temp_file, $image_data)) {
                 // Convertir a WebP y crear versión original
                 if (convertToWebP($temp_file, $original_filepath, 90)) {                    // Crear miniatura
                     if (convertToWebP($temp_file, $thumb_filepath, 80, 600, 900)) {
-                        return [
-                            'thumbnail' => $thumb_filepath,
-                            'original' => $original_filepath
-                        ];
+                        // Crear preview de muy baja calidad (320px ancho, 40% calidad)
+                        if (convertToWebP($temp_file, $preview_filepath, 40, 320, 480)) {
+                            return [
+                                'preview' => $preview_filepath,
+                                'thumbnail' => $thumb_filepath,
+                                'original' => $original_filepath
+                            ];
+                        }
                     }
                 }
             }
