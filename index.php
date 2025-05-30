@@ -2,6 +2,12 @@
 require_once 'cache_config.php';
 require_once 'download_image.php';
 
+// Establecer headers anti-caché para contenido dinámico al inicio
+header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+
 // Cargar configuración de la base de datos
 $cfg = require 'config.php';
 
@@ -9,7 +15,7 @@ $cfg = require 'config.php';
 function getContentHash($pdo) {
     $stmt = $pdo->query("SELECT MAX(published_date) as last_update FROM pk_melwater");
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    return md5($result['last_update'] . ASSETS_VERSION);
+    return md5($result['last_update'] . time() . ASSETS_VERSION); // Incluir timestamp actual
 }
 
 try {
@@ -21,21 +27,15 @@ try {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
         ]
-    );
-
-    // Generar ETag basado en la última actualización
+    );    // Generar ETag basado en la última actualización y timestamp actual
     $etag = '"' . getContentHash($pdo) . '"';
     
-    // Configurar headers de caché y tipo de contenido
+    // Configurar headers de caché y tipo de contenido para contenido dinámico
     header('Content-Type: text/html; charset=UTF-8');
-    setHeadersForContentType('data', true);
-    header('ETag: ' . $etag);
-
-    // Verificar si el contenido ha cambiado
-    if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && $_SERVER['HTTP_IF_NONE_MATCH'] === $etag) {
-        http_response_code(304); // Not Modified
-        exit;
-    }
+    setHeadersForContentType('html', true);
+    
+    // No usar ETag para contenido que cambia cada hora
+    // Remover verificación de ETag para forzar actualización
 
     // Obtener los datos de Meltwater
     $stmt = $pdo->query("
@@ -237,6 +237,20 @@ try {
     die("Error de conexión: " . $e->getMessage());
 }
 
+// Función para limpiar caché del navegador
+function clearBrowserCache() {
+    // Establecer headers adicionales para prevenir caché
+    header('Vary: Accept-Encoding, User-Agent');
+    header('X-Cache-Status: MISS');
+    
+    // Agregar headers de seguridad que también ayudan con caché
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+}
+
+// Aplicar limpieza de caché
+clearBrowserCache();
+
 // Iniciar buffer de salida
 ob_start();
 ?><!DOCTYPE html>
@@ -246,11 +260,22 @@ ob_start();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Portadas de periódicos de América Latina y el Caribe. Selecciona un país para ver las portadas más recientes.">
     <meta name="keywords" content="portadas, periódicos, América Latina, Caribe, noticias, actualidad, prensa, medios de comunicación">
-    <meta name="robots" content="index, follow">
-    <meta name="theme-color" content="#ffffff">
-    <meta http-equiv='cache-control' content='no-cache'>
-<meta http-equiv='expires' content='0'>
-<meta http-equiv='pragma' content='no-cache'>    <title>Portadas de Periódicos</title>
+    <meta name="robots" content="index, follow">    <meta name="theme-color" content="#ffffff">
+    <meta http-equiv='cache-control' content='no-cache, no-store, must-revalidate'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
+    
+    <!-- Timestamp para evitar caché del navegador -->
+    <script>
+        // Forzar recarga cada hora
+        const lastUpdate = <?= time() ?>;
+        const hoursSinceUpdate = Math.floor((Date.now() / 1000 - lastUpdate) / 3600);
+        if (hoursSinceUpdate >= 1) {
+            window.location.reload(true);
+        }
+    </script>
+    
+    <title>Portadas de Periódicos</title>
     
     <?php    // Preload de las primeras imágenes críticas para mejor PageSpeed
     // Debug: Verificar si $filtered_documents está definido
@@ -395,7 +420,7 @@ ob_start();
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     </noscript>
     
-    <link rel="stylesheet" href="styles.css?v=<?= ASSETS_VERSION ?>" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="styles.css?v=<?= ASSETS_VERSION ?>&t=<?= time() ?>" media="print" onload="this.media='all'">
 
 </head>
 <body>

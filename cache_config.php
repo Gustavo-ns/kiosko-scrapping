@@ -5,11 +5,11 @@ define('ASSETS_VERSION', '1.0.1');
 // Tiempos de caché en segundos
 define('CACHE_TIME_IMAGES', 86400);    // 1 día
 define('CACHE_TIME_STATIC', 86400);     // 1 día
-define('CACHE_TIME_DATA', 86400);        // 1 día
+define('CACHE_TIME_DATA', 0);            // Sin caché para datos dinámicos
 
 /**
  * Establece los headers de caché según el tipo de contenido
- * @param string $type Tipo de contenido ('image', 'static', 'data')
+ * @param string $type Tipo de contenido ('image', 'static', 'data', 'html')
  * @param bool $isPublic Si el contenido es público o privado
  */
 function setHeadersForContentType($type, $isPublic = true) {
@@ -23,8 +23,15 @@ function setHeadersForContentType($type, $isPublic = true) {
             $maxAge = CACHE_TIME_STATIC;
             break;
         case 'data':
-            $maxAge = CACHE_TIME_DATA;
-            break;
+        case 'html':
+            // Para contenido dinámico que se actualiza cada hora
+            $maxAge = 0;
+            $cacheControl = 'no-cache, no-store, must-revalidate';
+            header('Cache-Control: ' . $cacheControl);
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+            return;
         default:
             $maxAge = 0;
             $cacheControl = 'no-store';

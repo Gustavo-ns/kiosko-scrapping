@@ -35,12 +35,35 @@
   ExpiresByType text/css "access plus 1 month"
   ExpiresByType application/javascript "access plus 1 month"
   ExpiresByType text/javascript "access plus 1 month"
+  
+  # DESACTIVAR CACHÉ PARA CONTENIDO DINÁMICO (PHP)
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType application/x-httpd-php "access plus 0 seconds"
 </IfModule>
 
 <IfModule mod_headers.c>
+  # Cache para recursos estáticos
   <FilesMatch "\.(js|css|jpg|jpeg|png|gif|webp|woff2|woff|svg|ico)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
+  
+  # NO CACHE para archivos PHP y contenido dinámico
+  <FilesMatch "\.(php|html)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+    Header unset ETag
+    FileETag None
+  </FilesMatch>
+  
+  # Especialmente para index.php
+  <Files "index.php">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set Pragma "no-cache" 
+    Header set Expires "0"
+    Header unset ETag
+    FileETag None
+  </Files>
 </IfModule>
 
 # -------------------------------------
