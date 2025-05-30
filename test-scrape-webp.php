@@ -37,13 +37,11 @@ function testSaveImageLocally($imageUrl, $country, $alt) {
     }
 
     $tempFile = tempnam(sys_get_temp_dir(), 'img_');
-    file_put_contents($tempFile, $imageData);
-
-    try {
+    file_put_contents($tempFile, $imageData);    try {
         // Usar el procesador optimizado
         $result = processOptimizedImage($tempFile, $savePath, [
-            'max_width' => 325,
-            'max_height' => 500,
+            'max_width' => 600,
+            'max_height' => 900,
             'quality' => 85,
             'prefer_webp' => true,
             'strip_metadata' => true

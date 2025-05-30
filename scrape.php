@@ -35,6 +35,7 @@ if (!extension_loaded('imagick') && !extension_loaded('gd')) {
 
 // Incluir procesador optimizado de imágenes
 require_once 'optimized-image-processor.php';
+require_once 'download_image.php';
 
 $config = require 'config.php';
 
@@ -58,14 +59,24 @@ $hoy = date('Y-m-d');
 if ($lastScrapeDate !== $hoy) {
     echo "Limpiando imágenes y reiniciando base de datos (última fecha: $lastScrapeDate)...\n";
 
-    $imagesDir = __DIR__ . '/images/';
-    if (is_dir($imagesDir)) {
-        $files = glob($imagesDir . '*');
-        foreach ($files as $file) {
-            if (is_file($file)) unlink($file);
+    // Limpiar directorios de imágenes organizados
+    $imageDirs = [
+        __DIR__ . '/images/',
+        __DIR__ . '/images/covers/',
+        __DIR__ . '/images/covers/thumbnails/',
+        __DIR__ . '/images/melwater/',
+        __DIR__ . '/images/melwater/thumbnails/'
+    ];
+    
+    foreach ($imageDirs as $imagesDir) {
+        if (is_dir($imagesDir)) {
+            $files = glob($imagesDir . '*');
+            foreach ($files as $file) {
+                if (is_file($file)) unlink($file);
+            }
+        } else {
+            mkdir($imagesDir, 0777, true);
         }
-    } else {
-        mkdir($imagesDir, 0777, true);
     }
 
     $pdo->exec('TRUNCATE TABLE covers');
@@ -99,7 +110,15 @@ function checkImageMagickSupport() {
 
 function saveImageLocally($imageUrl, $country, $alt) {
     $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid();
-    $savePath = __DIR__ . "/images/";
+    
+    // Crear estructura de directorios como Meltwater
+    $upload_dir = __DIR__ . '/images/covers';
+    $thumb_dir = $upload_dir . '/thumbnails';
+    foreach ([$upload_dir, $thumb_dir] as $dir) {
+        if (!file_exists($dir)) {
+            mkdir($dir, 0755, true);
+        }
+    }
 
     // Usar Guzzle para la descarga con timeout y manejo de errores
     global $guzzle;
@@ -115,22 +134,51 @@ function saveImageLocally($imageUrl, $country, $alt) {
     file_put_contents($tempFile, $imageData);
 
     try {
-        // Usar el procesador optimizado que aprovecha las capacidades del servidor
-        $result = processOptimizedImage($tempFile, $savePath, [
-            'max_width' => 325,
-            'max_height' => 500,
+        // Definir rutas de archivos
+        $original_filename = $filename . '_original.webp';
+        $thumb_filename = $filename . '_thumb.webp';
+        $original_filepath = $upload_dir . '/' . $original_filename;
+        $thumb_filepath = $thumb_dir . '/' . $thumb_filename;
+
+        // Si ya existen los archivos, devolverlos
+        if (file_exists($original_filepath) && file_exists($thumb_filepath)) {
+            unlink($tempFile);
+            return [
+                'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
+                'original' => 'images/covers/' . $original_filename
+            ];
+        }
+
+        // Convertir a WebP y crear versión original
+        if (convertToWebP($tempFile, $original_filepath, 90)) {
+            // Crear miniatura con las nuevas dimensiones
+            if (convertToWebP($tempFile, $thumb_filepath, 80, 600, 900)) {
+                unlink($tempFile);
+                error_log("Imagen procesada exitosamente: $original_filename y $thumb_filename creados");
+                return [
+                    'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
+                    'original' => 'images/covers/' . $original_filename
+                ];
+            }
+        }
+        
+        // Fallback: usar el procesador optimizado si WebP falla
+        $result = processOptimizedImage($tempFile, $upload_dir, [
+            'max_width' => 600,
+            'max_height' => 900,
             'quality' => 85,
-            'prefer_webp' => true, // Intentar WebP si está disponible
+            'prefer_webp' => true,
             'strip_metadata' => true
         ]);
         
-        // Limpiar archivo temporal
         unlink($tempFile);
         
         if ($result['success']) {
-            error_log("Imagen procesada exitosamente: " . basename($result['output_path']) . 
-                     " (" . $result['format_used'] . ", " . $result['savings_percent'] . "% ahorro)");
-            return "images/" . basename($result['output_path']);
+            error_log("Imagen procesada con fallback: " . basename($result['output_path']));
+            return [
+                'thumbnail' => 'images/covers/' . basename($result['output_path']),
+                'original' => 'images/covers/' . basename($result['output_path'])
+            ];
         } else {
             error_log("Error procesando imagen: $imageUrl - " . $result['error']);
             return false;
@@ -148,15 +196,27 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
     $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
     $stmt->execute([':c' => $country, ':u' => $urlImg]);
     if (!$stmt->fetchColumn()) {
-        $local = saveImageLocally($urlImg, $country, $alt);
-        if ($local) {
-            $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link) VALUES(:c,:t,:i,:s,:l)");
+        $imageResult = saveImageLocally($urlImg, $country, $alt);
+        if ($imageResult) {
+            // Si es un array (nueva estructura), usar thumbnail como imagen principal
+            if (is_array($imageResult)) {
+                $thumbnail_path = $imageResult['thumbnail'];
+                $original_path = $imageResult['original'];
+            } else {
+                // Compatibilidad con estructura antigua
+                $thumbnail_path = $imageResult;
+                $original_path = $imageResult;
+            }
+            
+            $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:th,:or)");
             $ins->execute([
                 ':c' => $country, 
                 ':t' => $alt, 
-                ':i' => $local,
+                ':i' => $thumbnail_path, // Imagen principal (thumbnail)
                 ':s' => $sourceLink, 
-                ':l' => $urlImg
+                ':l' => $urlImg,
+                ':th' => $thumbnail_path, // Ruta del thumbnail
+                ':or' => $original_path   // Ruta del original
             ]);
         }
     }

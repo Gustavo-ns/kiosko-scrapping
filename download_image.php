@@ -123,9 +123,8 @@ function downloadImage($url, $external_id) {
             // Guardar imagen temporal
             if (file_put_contents($temp_file, $image_data)) {
                 // Convertir a WebP y crear versión original
-                if (convertToWebP($temp_file, $original_filepath, 90)) {
-                    // Crear miniatura
-                    if (convertToWebP($temp_file, $thumb_filepath, 80, 325, 500)) {
+                if (convertToWebP($temp_file, $original_filepath, 90)) {                    // Crear miniatura
+                    if (convertToWebP($temp_file, $thumb_filepath, 80, 600, 900)) {
                         return [
                             'thumbnail' => $thumb_filepath,
                             'original' => $original_filepath

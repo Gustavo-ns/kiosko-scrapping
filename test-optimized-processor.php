@@ -50,8 +50,8 @@ if ($result['success']) {
 // 4. Prueba manual con diferentes opciones
 echo "<h3>Procesamiento Manual (JPEG forzado)</h3>";
 $manualOptions = [
-    'max_width' => 300,
-    'max_height' => 450,
+    'max_width' => 600,
+    'max_height' => 900,
     'quality' => 80,
     'prefer_webp' => false, // Forzar JPEG
     'strip_metadata' => true

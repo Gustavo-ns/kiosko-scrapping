@@ -128,12 +128,11 @@ try {
     $resizedPath = $imagesDir . 'test_resized.jpg';
     
     // Crear nueva instancia para redimensionamiento
-    $imagickResized = new Imagick($testImage);
-    $newWidth = $imagickResized->getImageWidth();
+    $imagickResized = new Imagick($testImage);    $newWidth = $imagickResized->getImageWidth();
     $newHeight = $imagickResized->getImageHeight();
     
-    if ($originalWidth > 325 || $originalHeight > 500) {
-        $imagickResized->resizeImage(325, 500, Imagick::FILTER_LANCZOS, 1, true);
+    if ($originalWidth > 600 || $originalHeight > 900) {
+        $imagickResized->resizeImage(600, 900, Imagick::FILTER_LANCZOS, 1, true);
         $newWidth = $imagickResized->getImageWidth();
         $newHeight = $imagickResized->getImageHeight();
     }

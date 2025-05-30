@@ -287,11 +287,12 @@ ob_start();
     foreach ($critical_images as $doc) {
         $source_type = $doc['source_type'];
         $image_url = '';
-        
-        if ($source_type === 'meltwater' && isset($doc['content_image'])) {
+          if ($source_type === 'meltwater' && isset($doc['content_image'])) {
             $image_url = $doc['content_image'];
-        } elseif ($source_type === 'cover' && isset($doc['image_url'])) {
-            $image_url = $doc['image_url'];
+        } elseif ($source_type === 'cover') {
+            // Usar thumbnail para preload en covers con nueva estructura
+            $image_url = isset($doc['thumbnail_url']) ? $doc['thumbnail_url'] : 
+                        (isset($doc['image_url']) ? $doc['image_url'] : '');
         } elseif ($source_type === 'resumen' && isset($doc['source'])) {
             $image_url = $doc['source'];
         }
@@ -334,15 +335,14 @@ ob_start();
             border-radius: 8px;
             outline: none;
             transition: border-color 0.3s;
-        }
-        .gallery {
+        }        .gallery {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 1.5rem;
             padding: 3rem;
             content-visibility: auto;
-            contain-intrinsic-size: 300px;
-        }        .card {
+            contain-intrinsic-size: 400px;
+        }.card {
             position: relative;
             overflow: hidden;
             min-height: auto;
@@ -351,13 +351,12 @@ ob_start();
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             transition: transform 0.4s ease, box-shadow 0.4s ease;
             cursor: pointer;
-            transform-style: preserve-3d;
-            will-change: transform;
+            transform-style: preserve-3d;            will-change: transform;
             content-visibility: auto;
-            contain-intrinsic-size: 300px;
+            contain-intrinsic-size: 400px;
             display: grid;
             grid-template-rows: auto 1fr;
-        }.image-container {
+        }        .image-container {
             position: relative;
             width: 100%;
             background: #f0f0f0;
@@ -365,8 +364,8 @@ ob_start();
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 200px;
-        }        .card img {
+            min-height: 250px;
+        }.card img {
             position: relative;
             width: 100%;
             height: auto;
@@ -526,18 +525,22 @@ ob_start();
                         $image_paths = downloadImage($content_image, $external_id);
                     }
                     $display_image = $image_paths ? $image_paths['thumbnail'] : $content_image;
-                    $zoom_image = $image_paths ? $image_paths['original'] : $content_image;
-                } elseif ($source_type === 'cover') {
-                    // Datos de covers
+                    $zoom_image = $image_paths ? $image_paths['original'] : $content_image;                } elseif ($source_type === 'cover') {
+                    // Datos de covers - usando nueva estructura organizada
                     $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
                     $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : (isset($doc['country']) ? htmlspecialchars($doc['country']) : '');
                     $url_destino = isset($doc['source']) ? htmlspecialchars($doc['source']) : '#';
-                    $content_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
                     $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
                     $published_date = isset($doc['scraped_at']) ? htmlspecialchars($doc['scraped_at']) : '';
                     
-                    $display_image = $content_image;
-                    $zoom_image = isset($doc['image_url']) ? $doc['image_url'] : $content_image;
+                    // Usar nueva estructura de thumbnails y originales
+                    $thumbnail_url = isset($doc['thumbnail_url']) ? htmlspecialchars($doc['thumbnail_url']) : '';
+                    $original_url = isset($doc['original_url']) ? htmlspecialchars($doc['original_url']) : '';
+                    $fallback_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';
+                      // Use original images for display (was using thumbnails before)
+                    $content_image = $original_url ?: $fallback_image;
+                    $display_image = $original_url ?: $fallback_image;
+                    $zoom_image = $original_url ?: $fallback_image;
                     $external_id = isset($doc['source']) ? htmlspecialchars($doc['source']) : '';
                 } elseif ($source_type === 'resumen') {
                     // Datos de resumen
@@ -566,16 +569,19 @@ ob_start();
                      data-source-type="<?= $source_type ?>"
                      data-grupo="<?= $grupo ?>" 
                      data-external-id="<?= $external_id ?>"
-                     data-published-date="<?= $published_date ?>"><div class="image-container" id="img-container-<?= $image_count ?>">
+                     data-published-date="<?= $published_date ?>">                    <div class="image-container" id="img-container-<?= $image_count ?>">
                         <?php if ($content_image): ?>
                             <img loading="<?= $loading_strategy ?>" 
-                                 src="<?= $zoom_image ?>?v=<?= ASSETS_VERSION ?>" 
+                                 src="<?= $display_image ?>?v=<?= ASSETS_VERSION ?>" 
                                  alt="<?= $title ?>" 
                                  onload="this.parentElement.classList.add('loaded')"
                                  onerror="this.parentElement.classList.add('loaded')"
                                  <?php if ($image_count <= 6): ?>
                                  fetchpriority="high"
-                                 <?php endif; ?>>
+                                 <?php endif; ?>>                            <?php /* Zoom icon hidden as requested
+                            if ($zoom_image && $zoom_image !== $display_image): ?>
+                                <div class="zoom-icon" data-img="<?= htmlspecialchars($zoom_image) ?>">🔍</div>
+                            <?php endif; */ ?>
                         <?php endif; ?>
                     </div><div class="info">
                         <h3><?= $title ?></h3>
@@ -713,8 +719,7 @@ ob_start();
                     modalImage.src = '';
                     imageModal.classList.remove('show');
                 }
-            });
-
+            });            /* Zoom icon functionality removed as requested
             document.querySelectorAll('.zoom-icon').forEach(icon => {
                 icon.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -723,6 +728,7 @@ ob_start();
                     if (imageUrl) showModal(imageUrl);
                 });
             });
+            */
 
             const params = new URLSearchParams(window.location.search);
             const initialGrupo = params.get('grupo') || '';

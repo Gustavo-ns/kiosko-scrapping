@@ -9,11 +9,10 @@
  * @param array $options Opciones de procesamiento
  * @return array Resultado del procesamiento
  */
-function processOptimizedImage($imagePath, $outputDir, $options = []) {
-    // Configuración por defecto
+function processOptimizedImage($imagePath, $outputDir, $options = []) {    // Configuración por defecto
     $defaults = [
-        'max_width' => 325,
-        'max_height' => 500,
+        'max_width' => 600,
+        'max_height' => 900,
         'quality' => 85,
         'prefer_webp' => true,
         'strip_metadata' => true
@@ -257,10 +256,9 @@ function getImageProcessingCapabilities() {
  */
 function autoProcessImage($inputPath, $outputDir) {
     $capabilities = getImageProcessingCapabilities();
-    
-    $options = [
-        'max_width' => 325,
-        'max_height' => 500,
+      $options = [
+        'max_width' => 600,
+        'max_height' => 900,
         'quality' => 85,
         'prefer_webp' => $capabilities['webp_support'],
         'strip_metadata' => true

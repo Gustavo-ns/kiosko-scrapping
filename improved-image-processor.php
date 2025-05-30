@@ -10,11 +10,10 @@
  * @param array $options Opciones de configuración
  * @return string|false Ruta local del archivo guardado o false en caso de error
  */
-function saveImageLocallyOptimized($imageUrl, $country, $alt, $options = []) {
-    // Configuración por defecto
+function saveImageLocallyOptimized($imageUrl, $country, $alt, $options = []) {    // Configuración por defecto
     $config = array_merge([
-        'max_width' => 325,
-        'max_height' => 500,
+        'max_width' => 600,
+        'max_height' => 900,
         'quality' => 85,
         'webp_quality' => 80,
         'force_format' => null, // 'webp', 'jpeg', o null para auto-detectar
