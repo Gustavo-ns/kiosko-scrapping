@@ -491,9 +491,8 @@ ob_start();
                             endforeach; 
                             ?>
                         </select>
-                    </div>
-                </div>
-            <?php endif; ?>            <button id="refreshBtn">🔄 Actualizar</button>
+                    </div>                </div>
+            <?php endif; ?>            <button id="refreshBtn" style="display: none;">🔄 Actualizar</button>
         </div>        <div id="gallery" class="gallery">
             <?php
             // Debug: mostrar información de los documentos
@@ -563,7 +562,7 @@ ob_start();
                 $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
             ?>
                 <div class="card" 
-                     data-id="<?= $doc['page_url'] ?>"
+                     data-id="<?= isset($doc['page_url']) ? htmlspecialchars($doc['page_url']) : '' ?>"
                      data-dereach="<?= isset($doc['dereach']) ? htmlspecialchars($doc['dereach']) : '' ?>"
                      data-source-type="<?= $source_type ?>"
                      data-grupo="<?= $grupo ?>" 
