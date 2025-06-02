@@ -6,6 +6,9 @@ ini_set('log_errors', '1');
 ini_set('error_log', __DIR__ . '/scrape_errors.log'); // Log a archivo
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 
+// Configurar zona horaria
+date_default_timezone_set('America/Montevideo');
+
 set_error_handler(function ($severity, $message) {
     if (
         $severity === E_DEPRECATED
@@ -28,6 +31,52 @@ if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
 }
 require 'vendor/autoload.php';
 
+// Validar y cargar configuración
+$config_file = __DIR__ . '/config.php';
+error_log("Intentando cargar archivo de configuración: " . $config_file);
+
+if (!file_exists($config_file)) {
+    error_log("Error: No se encuentra el archivo de configuración en: " . $config_file);
+    die("Error: No se encuentra el archivo config.php\n");
+}
+
+if (!is_readable($config_file)) {
+    error_log("Error: El archivo de configuración no es legible: " . $config_file);
+    die("Error: El archivo config.php no es legible\n");
+}
+
+$config = @include $config_file;
+//error_log("Resultado de carga de configuración: " . var_export($config, true));
+
+if ($config === false) {
+    error_log("Error: Falló la carga del archivo de configuración");
+    die("Error: Falló la carga del archivo config.php\n");
+}
+
+if ($config === 1) {
+    error_log("Error: El archivo de configuración no devuelve un array");
+    die("Error: El archivo config.php debe devolver un array de configuración\n");
+}
+
+if (!is_array($config)) {
+    error_log("Error: La configuración no es un array. Tipo recibido: " . gettype($config));
+    die("Error: Formato inválido en config.php. Debe devolver un array.\n");
+}
+
+if (!isset($config['db']) || !isset($config['sites'])) {
+    error_log("Error: Formato inválido en config.php. Contenido: " . var_export($config, true));
+    die("Error: Formato inválido en config.php. Debe contener las secciones 'db' y 'sites'.\n");
+}
+
+// Validar configuración de base de datos
+$required_db_fields = ['host', 'name', 'user', 'pass'];
+foreach ($required_db_fields as $field) {
+    if (!isset($config['db'][$field])) {
+        error_log("Error: Falta el campo '$field' en la configuración de la base de datos");
+        die("Error: Configuración de base de datos incompleta. Falta el campo: $field\n");
+    }
+}
+
 // Validar extensiones de procesamiento de imágenes
 if (!extension_loaded('imagick') && !extension_loaded('gd')) {
     die("Se requiere Imagick o GD para el procesamiento de imágenes.\n");
@@ -37,18 +86,73 @@ if (!extension_loaded('imagick') && !extension_loaded('gd')) {
 require_once 'optimized-image-processor.php';
 require_once 'download_image.php';
 
-$config = require 'config.php';
-
 use Goutte\Client;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Client as GuzzleClient;
 
-$pdo = new PDO(
-    "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset={$config['db']['charset']}",
-    $config['db']['user'],
-    $config['db']['pass'],
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-);
+function getPDO() {
+    global $config;
+    static $pdo = null;
+    
+    if ($pdo === null) {
+        if (!isset($config) || !is_array($config)) {
+            error_log("Error crítico: La configuración no está disponible");
+            die("Error crítico: La configuración no está disponible\n");
+        }
+
+        if (!isset($config['db']) || !is_array($config['db'])) {
+            error_log("Error crítico: La configuración de base de datos no es válida");
+            die("Error crítico: La configuración de base de datos no es válida\n");
+        }
+
+        $required = ['host', 'name', 'user', 'pass'];
+        foreach ($required as $field) {
+            if (empty($config['db'][$field])) {
+                error_log("Error crítico: Falta el campo '$field' en la configuración de la base de datos");
+                die("Error crítico: Falta el campo '$field' en la configuración de la base de datos\n");
+            }
+        }
+
+        try {
+            $dsn = "mysql:host={$config['db']['host']};dbname={$config['db']['name']}";
+            error_log("Intentando conectar a la base de datos: $dsn");
+            
+            // Try connecting without charset first
+            try {
+                $pdo = new PDO($dsn, $config['db']['user'], $config['db']['pass'], [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                ]);
+            } catch (PDOException $e) {
+                if (strpos($e->getMessage(), 'Unknown character set') !== false) {
+                    // If charset fails, try with utf8mb4
+                    $dsn .= ";charset=utf8mb4";
+                    error_log("Reintentando conexión con charset utf8mb4: $dsn");
+                    $pdo = new PDO($dsn, $config['db']['user'], $config['db']['pass'], [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::ATTR_EMULATE_PREPARES => false,
+                    ]);
+                } else {
+                    throw $e;
+                }
+            }
+            
+            // Set charset after connection if needed
+            $pdo->exec("SET NAMES utf8mb4");
+            error_log("Database connection established successfully");
+        } catch (PDOException $e) {
+            error_log("Error de conexión a la base de datos: " . $e->getMessage());
+            error_log("DSN utilizado: $dsn");
+            die("Error de conexión a la base de datos: " . $e->getMessage() . "\n");
+        }
+    }
+    
+    return $pdo;
+}
+
+$pdo = getPDO();
 
 // Obtener la última fecha de scraping
 $stmt = $pdo->prepare("SELECT value FROM configs WHERE name = 'last_scrape_date'");
@@ -87,9 +191,22 @@ if ($lastScrapeDate !== $hoy) {
 
 $client = new Client();
 $guzzle = new GuzzleClient([
-    'headers' => ['User-Agent' => 'Mozilla/5.0'],
-    'timeout' => 10,
-    'connect_timeout' => 5
+    'headers' => [
+        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language' => 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3'
+    ],
+    'timeout' => 30,
+    'connect_timeout' => 10,
+    'allow_redirects' => [
+        'max' => 10,
+        'strict' => false,
+        'referer' => true,
+        'protocols' => ['http', 'https'],
+        'track_redirects' => true
+    ],
+    'verify' => false, // Desactivar verificación SSL para desarrollo
+    'http_errors' => false // No lanzar excepciones en errores HTTP
 ]);
 
 function checkImageMagickSupport() {
@@ -196,55 +313,66 @@ function saveImageLocally($imageUrl, $country, $alt) {
 }
 
 function storeCover($country, $alt, $urlImg, $sourceLink) {
-    global $pdo;
-    $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
-    $stmt->execute([':c' => $country, ':u' => $urlImg]);
-    if (!$stmt->fetchColumn()) {
-        $imageResult = saveImageLocally($urlImg, $country, $alt);
-        if ($imageResult) {
-            // Si es un array (nueva estructura), usar las diferentes versiones
-            if (is_array($imageResult)) {
-                $preview_path = isset($imageResult['preview']) ? $imageResult['preview'] : null;
-                $thumbnail_path = $imageResult['thumbnail'];
-                $original_path = $imageResult['original'];
-            } else {
-                // Compatibilidad con estructura antigua
-                $preview_path = null;
-                $thumbnail_path = $imageResult;
-                $original_path = $imageResult;
-            }
-              try {
-                $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,preview_url,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:pr,:th,:or)");
-                $ins->execute([
-                    ':c' => $country, 
-                    ':t' => $alt, 
-                    ':i' => $thumbnail_path, // Imagen principal (thumbnail)
-                    ':s' => $sourceLink, 
-                    ':l' => $urlImg,
-                    ':pr' => $preview_path,   // Ruta del preview (muy baja calidad)
-                    ':th' => $thumbnail_path, // Ruta del thumbnail
-                    ':or' => $original_path   // Ruta del original
-                ]);
-            } catch (PDOException $e) {
-                // If preview_url column doesn't exist, fallback to old structure
-                if (strpos($e->getMessage(), 'preview_url') !== false) {
-                    error_log("Fallback: usando estructura antigua sin preview_url para $sourceLink");
-                    $ins_fallback = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:th,:or)");
-                    $ins_fallback->execute([
+    try {
+        $pdo = getPDO();
+        if (!$pdo instanceof PDO) {
+            error_log("Error: Failed to get valid PDO instance in storeCover function");
+            return false;
+        }
+        
+        $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
+        $stmt->execute([':c' => $country, ':u' => $urlImg]);
+        if (!$stmt->fetchColumn()) {
+            $imageResult = saveImageLocally($urlImg, $country, $alt);
+            if ($imageResult) {
+                // Si es un array (nueva estructura), usar las diferentes versiones
+                if (is_array($imageResult)) {
+                    $preview_path = isset($imageResult['preview']) ? $imageResult['preview'] : null;
+                    $thumbnail_path = $imageResult['thumbnail'];
+                    $original_path = $imageResult['original'];
+                } else {
+                    // Compatibilidad con estructura antigua
+                    $preview_path = null;
+                    $thumbnail_path = $imageResult;
+                    $original_path = $imageResult;
+                }
+                try {
+                    $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,preview_url,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:pr,:th,:or)");
+                    $ins->execute([
                         ':c' => $country, 
                         ':t' => $alt, 
                         ':i' => $thumbnail_path,
                         ':s' => $sourceLink, 
                         ':l' => $urlImg,
+                        ':pr' => $preview_path,
                         ':th' => $thumbnail_path,
                         ':or' => $original_path
                     ]);
-                } else {
-                    throw $e; // Re-throw if it's a different error
+                } catch (PDOException $e) {
+                    // If preview_url column doesn't exist, fallback to old structure
+                    if (strpos($e->getMessage(), 'preview_url') !== false) {
+                        error_log("Fallback: usando estructura antigua sin preview_url para $sourceLink");
+                        $ins_fallback = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:th,:or)");
+                        $ins_fallback->execute([
+                            ':c' => $country, 
+                            ':t' => $alt, 
+                            ':i' => $thumbnail_path,
+                            ':s' => $sourceLink, 
+                            ':l' => $urlImg,
+                            ':th' => $thumbnail_path,
+                            ':or' => $original_path
+                        ]);
+                    } else {
+                        throw $e;
+                    }
                 }
             }
         }
+    } catch (Exception $e) {
+        error_log("Error in storeCover: " . $e->getMessage());
+        return false;
     }
+    return true;
 }
 
 function extractHiresFromFusionScript($crawler) {
@@ -307,6 +435,33 @@ function isValidImage($path) {
     return $info !== false && in_array($info['mime'], ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 }
 
+function verifyHttpResponse($url) {
+    global $guzzle;
+    error_log("Verificando URL: " . $url);
+    
+    try {
+        $response = $guzzle->head($url, [
+            'allow_redirects' => true,
+            'timeout' => 10
+        ]);
+        
+        $statusCode = $response->getStatusCode();
+        $contentType = $response->getHeaderLine('content-type');
+        
+        error_log("Respuesta de $url - Status: $statusCode, Content-Type: $contentType");
+        
+        if ($statusCode !== 200) {
+            error_log("Error: Status code $statusCode para $url");
+            return false;
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error verificando respuesta HTTP para $url: " . $e->getMessage());
+        return false;
+    }
+}
+
 $total = 0;
 foreach ($config['sites'] as $country => $confs) {
     $total += count($confs);
@@ -321,12 +476,21 @@ foreach ($config['sites'] as $country => $configs) {
         echo "Procesando [$counter/$total: $pct%] {$conf['url']}\n<br>";
 
         try {
+            // Verificar que la URL es accesible
+            if (!verifyHttpResponse($conf['url'])) {
+                error_log("Saltando {$conf['url']} debido a respuesta HTTP inválida");
+                continue;
+            }
+
+            error_log("Iniciando scraping de: " . $conf['url']);
             $crawler = $client->request('GET', $conf['url']);
             $urlImg = '';
             $alt = 'Portada';
             $fullUri = $conf['url'];
 
-            if (!empty($conf['custom_extractor'])) {                switch ($conf['custom_extractor']) {
+            if (!empty($conf['custom_extractor'])) {
+                error_log("Usando extractor personalizado: " . $conf['custom_extractor']);
+                switch ($conf['custom_extractor']) {
                     case 'extractWithXPath':
                         $xpath = isset($conf['xpath']) ? $conf['xpath'] : '//img';
                         $attr = isset($conf['attribute']) ? $conf['attribute'] : 'src';
@@ -343,23 +507,30 @@ foreach ($config['sites'] as $country => $configs) {
             }
 
             if (!empty($conf['attribute']) && !empty($conf['selector'])) {
+                error_log("Intentando extraer imagen con selector: {$conf['selector']} y atributo: {$conf['attribute']}");
                 $node = $crawler->filter($conf['selector']);
                 if ($node->count()) {
                     $urlImg = makeAbsoluteUrl($conf['url'], $node->attr($conf['attribute']));
+                    error_log("URL de imagen encontrada: " . $urlImg);
                 } else {
+                    error_log("No se encontró nodo con el selector: {$conf['selector']}");
                     continue;
                 }
             } elseif (!empty($conf['selector']) && empty($conf['multiple'])) {
+                error_log("Intentando extraer imagen con selector simple: {$conf['selector']}");
                 $node = $crawler->filter($conf['selector']);
                 if ($node->count()) {
                     $img = $node->attr('src') ?: '';
                     $alt = $node->attr('alt') ?: $alt;
                     $urlImg = makeAbsoluteUrl($conf['url'], $img);
+                    error_log("URL de imagen encontrada: " . $urlImg . ", Alt: " . $alt);
                 } else {
+                    error_log("No se encontró nodo con el selector: {$conf['selector']}");
                     continue;
                 }
             } elseif (!empty($conf['multiple'])) {
-                $crawler->filter($conf['selector'])->each(function ($node) use ($conf, $country, $pdo, $client) {
+                error_log("Procesando múltiples imágenes con selector: {$conf['selector']}");
+                $crawler->filter($conf['selector'])->each(function ($node) use ($conf, $country, $client) {
                     $base = new Uri($conf['url']);
                     $urlImg = '';
                     $linkPage = $conf['url'];
