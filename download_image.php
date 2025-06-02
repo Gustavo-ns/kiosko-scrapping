@@ -48,7 +48,12 @@ function convertToWebP($source_image, $output_file, $quality = 80, $width = null
     if ($width && $height) {
         $image = resizeImage($source_image, $width, $height);
     } else {
-        $mime = getimagesize($source_image)['mime'];
+        $image_info = getimagesize($source_image);
+        if ($image_info === false) {
+            error_log("Failed to get image information for: " . $source_image);
+            return false;
+        }
+        $mime = $image_info['mime'];
         switch ($mime) {
             case 'image/jpeg':
                 $image = imagecreatefromjpeg($source_image);
@@ -113,6 +118,7 @@ function downloadImage($url, $external_id) {
 
     // Crear un archivo temporal para la descarga inicial
     $temp_file = tempnam(sys_get_temp_dir(), 'img_');
+    error_log("Created temporary file: " . $temp_file);
 
     try {
         $ch = curl_init($url);
@@ -121,27 +127,66 @@ function downloadImage($url, $external_id) {
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         $image_data = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
         curl_close($ch);
 
-        if ($http_code === 200 && $image_data) {            // Guardar imagen temporal
-            if (file_put_contents($temp_file, $image_data)) {
-                // Convertir a WebP y crear versión original
-                if (convertToWebP($temp_file, $original_filepath, 90)) {                    // Crear miniatura
-                    if (convertToWebP($temp_file, $thumb_filepath, 80, 600, 900)) {
-                        // Crear preview de muy baja calidad (320px ancho, 40% calidad)
-                        if (convertToWebP($temp_file, $preview_filepath, 40, 320, 480)) {
-                            return [
-                                'preview' => $preview_filepath,
-                                'thumbnail' => $thumb_filepath,
-                                'original' => $original_filepath
-                            ];
-                        }
-                    }
-                }
-            }
+        if ($http_code !== 200) {
+            error_log("HTTP request failed with status code: " . $http_code . " for URL: " . $url);
+            return false;
         }
+
+        if (!$image_data) {
+            error_log("No image data received. cURL error: " . $curl_error);
+            return false;
+        }
+
+        $bytes_written = file_put_contents($temp_file, $image_data);
+        if ($bytes_written === false) {
+            error_log("Failed to write image data to temporary file: " . $temp_file);
+            return false;
+        }
+        error_log("Successfully wrote " . $bytes_written . " bytes to temporary file");
+
+        // Verify the temporary file exists and is readable
+        if (!file_exists($temp_file) || !is_readable($temp_file)) {
+            error_log("Temporary file does not exist or is not readable: " . $temp_file);
+            return false;
+        }
+
+        // Verify the file contains image data
+        $image_info = getimagesize($temp_file);
+        if ($image_info === false) {
+            error_log("File is not a valid image: " . $temp_file . " (Size: " . filesize($temp_file) . " bytes)");
+            return false;
+        }
+
+        // Convertir a WebP y crear versión original
+        if (!convertToWebP($temp_file, $original_filepath, 90)) {
+            error_log("Failed to convert original image to WebP");
+            return false;
+        }
+
+        // Crear miniatura
+        if (!convertToWebP($temp_file, $thumb_filepath, 80, 600, 900)) {
+            error_log("Failed to create thumbnail");
+            return false;
+        }
+
+        // Crear preview de muy baja calidad
+        if (!convertToWebP($temp_file, $preview_filepath, 40, 320, 480)) {
+            error_log("Failed to create preview");
+            return false;
+        }
+
+        return [
+            'preview' => $preview_filepath,
+            'thumbnail' => $thumb_filepath,
+            'original' => $original_filepath
+        ];
+
     } catch (Exception $e) {
         error_log("Error procesando imagen: " . $e->getMessage());
+        return false;
     } finally {
         // Limpiar archivo temporal
         if (file_exists($temp_file)) {
