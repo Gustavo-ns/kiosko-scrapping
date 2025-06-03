@@ -37,174 +37,48 @@ try {
     // No usar ETag para contenido que cambia cada hora
     // Remover verificación de ETag para forzar actualización
 
-    // Obtener los datos de Meltwater
+    // Obtener los datos unificados de la tabla portadas
     $stmt = $pdo->query("
-        SELECT 
-            med.*,
-            pk.*,
-            'meltwater' as source_type
-        FROM pk_melwater pk
-        LEFT JOIN medios med ON pk.external_id = med.twitter_id
-        WHERE med.visualizar = 1
-        ORDER BY med.grupo, med.pais, med.dereach DESC
+        SELECT *
+        FROM portadas
+        WHERE published_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        ORDER BY published_date DESC
     ");
-    $meltwater_docs = $stmt->fetchAll();
+    $documents = $stmt->fetchAll();
 
-    // Obtener los datos de covers
-    $stmt = $pdo->query("
-        SELECT 
-            c.*,
-            med.*,
-            'cover' as source_type
-        FROM covers c
-        LEFT JOIN medios med ON c.source = med.source
-        WHERE med.visualizar = 1
-        ORDER BY c.scraped_at DESC
-    ");
-    $covers = $stmt->fetchAll();   // Obtener los datos de pk_meltwater_resumen
-    $stmt = $pdo->query("
-        SELECT *, 'resumen' as source_type FROM `pk_meltwater_resumen`
-        WHERE visualizar = 1 
-    ");
-    $pk_meltwater_resumen = $stmt->fetchAll();    // Función para deduplifcar y priorizar datos de Meltwater
-    function deduplicateAndPrioritize($meltwater_docs, $covers, $pk_meltwater_resumen) {
-        $uniqueDocuments = [];
-        $processedIdentifiers = [];
-        $stats = [
-            'original' => [
-                'meltwater' => count($meltwater_docs),
-                'covers' => count($covers),
-                'resumen' => count($pk_meltwater_resumen),
-                'total' => count($meltwater_docs) + count($covers) + count($pk_meltwater_resumen)
-            ],
-            'processed' => [
-                'meltwater' => 0,
-                'covers' => 0,
-                'resumen' => 0,
-                'duplicates_removed' => 0
-            ]
-        ];
-          // Paso 1: Procesar datos de Meltwater (máxima prioridad)
-        foreach ($meltwater_docs as $doc) {
-            $twitter_id = isset($doc['twitter_id']) ? trim($doc['twitter_id']) : '';
-            $external_id = isset($doc['external_id']) ? trim($doc['external_id']) : '';
-            
-            if (!empty($twitter_id) || !empty($external_id)) {
-                $identifiers = [];
-                if (!empty($twitter_id)) $identifiers[] = 'twitter_' . $twitter_id;
-                if (!empty($external_id)) $identifiers[] = 'external_' . $external_id;
-                
-                $shouldAdd = true;
-                foreach ($identifiers as $identifier) {
-                    if (isset($processedIdentifiers[$identifier])) {
-                        $shouldAdd = false;
-                        break;
-                    }
-                }
-                
-                if ($shouldAdd) {
-                    $uniqueDocuments[] = $doc;
-                    foreach ($identifiers as $identifier) {
-                        $processedIdentifiers[$identifier] = 'meltwater';
-                    }
-                    $stats['processed']['meltwater']++;
-                } else {
-                    $stats['processed']['duplicates_removed']++;
-                }
-            }
+    // Filtrar documentos por fecha
+    $now = new DateTime(); // ahora
+    $yesterday = new DateTime();
+    $yesterday->modify('-24 hours');
+    
+    error_log("Total documentos obtenidos de portadas: " . count($documents));
+    error_log("Rango de fechas: " . $yesterday->format('Y-m-d H:i:s') . " hasta " . $now->format('Y-m-d H:i:s'));
+    
+    $filtered_documents = array_filter($documents, function($doc) use ($yesterday, $now) {
+        $date_str = isset($doc['published_date']) ? $doc['published_date'] : null;
+        if (!$date_str) return false;
+        try {
+            $doc_date = new DateTime($date_str);
+            $is_in_range = $doc_date >= $yesterday && $doc_date <= $now;
+            if (!$is_in_range) return false;
+        } catch (Exception $e) {
+            return false;
         }
-          // Paso 2: Procesar datos de covers (prioridad media)
-        foreach ($covers as $doc) {
-            $source = isset($doc['source']) ? trim($doc['source']) : '';
-            $twitter_id = isset($doc['twitter_id']) ? trim($doc['twitter_id']) : '';
-            
-            if (!empty($source) || !empty($twitter_id)) {
-                $identifiers = [];
-                if (!empty($twitter_id)) $identifiers[] = 'twitter_' . $twitter_id;
-                if (!empty($source)) $identifiers[] = 'source_' . $source;
-                
-                $shouldAdd = true;
-                foreach ($identifiers as $identifier) {
-                    if (isset($processedIdentifiers[$identifier])) {
-                        $shouldAdd = false;
-                        break;
-                    }
-                }
-                
-                if ($shouldAdd) {
-                    $uniqueDocuments[] = $doc;
-                    foreach ($identifiers as $identifier) {
-                        $processedIdentifiers[$identifier] = 'cover';
-                    }
-                    $stats['processed']['covers']++;
-                } else {
-                    $stats['processed']['duplicates_removed']++;
-                }
-            }
-        }
-          // Paso 3: Procesar datos de resumen (prioridad baja)
-        foreach ($pk_meltwater_resumen as $doc) {
-            $twitter_id = isset($doc['twitter_id']) ? trim($doc['twitter_id']) : '';
-            $source = isset($doc['source']) ? trim($doc['source']) : '';
-            $doc_id = isset($doc['id']) ? $doc['id'] : '';
-            
-            $identifiers = [];
-            if (!empty($twitter_id)) $identifiers[] = 'twitter_' . $twitter_id;
-            if (!empty($source)) $identifiers[] = 'source_' . $source;
-            // Como fallback, usar el ID único del resumen si no hay otros identificadores
-            if (empty($identifiers) && !empty($doc_id)) {
-                $identifiers[] = 'resumen_id_' . $doc_id;
-            }
-            
-            if (!empty($identifiers)) {
-                $shouldAdd = true;
-                foreach ($identifiers as $identifier) {
-                    if (isset($processedIdentifiers[$identifier])) {
-                        $shouldAdd = false;
-                        break;
-                    }
-                }
-                
-                if ($shouldAdd) {
-                    $uniqueDocuments[] = $doc;
-                    foreach ($identifiers as $identifier) {
-                        $processedIdentifiers[$identifier] = 'resumen';
-                    }
-                    $stats['processed']['resumen']++;
-                } else {
-                    $stats['processed']['duplicates_removed']++;
-                }
-            }
-        }
-        
-        $stats['final_count'] = count($uniqueDocuments);
-        
-        return ['documents' => $uniqueDocuments, 'stats' => $stats];
-    }
-
-    // Combinar y deduplicar los datos dando prioridad a Meltwater
-    $deduplication_result = deduplicateAndPrioritize($meltwater_docs, $covers, $pk_meltwater_resumen);
-    $documents = $deduplication_result['documents'];
-    $dedup_stats = $deduplication_result['stats'];    // Ordenar primero por país y luego por DeReach (mayor a menor)
-    usort($documents, function($a, $b) {
-        // Obtener país (priorizar 'pais' sobre 'country')
-        $pais_a = isset($a['pais']) ? $a['pais'] : (isset($a['country']) ? $a['country'] : '');
-        $pais_b = isset($b['pais']) ? $b['pais'] : (isset($b['country']) ? $b['country'] : '');
-        
-        // Primer criterio: ordenar por país alfabéticamente
-        $country_comparison = strcasecmp($pais_a, $pais_b);
-        if ($country_comparison !== 0) {
-            return $country_comparison;
-        }
-        
-        // Segundo criterio: ordenar por DeReach (mayor a menor)
-        $dereach_a = isset($a['dereach']) ? (float)$a['dereach'] : 0;
-        $dereach_b = isset($b['dereach']) ? (float)$b['dereach'] : 0;
-        
-        // Orden descendente para DeReach (mayor valor primero)
-        if ($dereach_a == $dereach_b) return 0;
-        return ($dereach_a > $dereach_b) ? -1 : 1;
+        // Solo mostrar si visualizar=1
+        if (isset($doc['visualizar']) && $doc['visualizar'] != 1) return false;
+        return true;
     });
+
+    // Desglose por tipo
+    $type_counts = ['meltwater' => 0, 'cover' => 0, 'resumen' => 0];
+    foreach ($filtered_documents as $doc) {
+        $type = isset($doc['source_type']) ? $doc['source_type'] : 'unknown';
+        if (!isset($type_counts[$type])) {
+            $type_counts[$type] = 0;
+        }
+        $type_counts[$type]++;
+    }
+    error_log("Desglose por tipo: " . json_encode($type_counts));
 
     // Obtener grupos únicos con conteo para el selector
     $grupos = $pdo->query("
@@ -230,6 +104,20 @@ try {
         FROM covers 
         ORDER BY country
     ")->fetchAll(PDO::FETCH_COLUMN);
+
+    // Ordenar los documentos por grupo, luego pais, luego dereach descendente
+    usort($filtered_documents, function($a, $b) {
+        $grupoA = isset($a['grupo']) ? $a['grupo'] : '';
+        $grupoB = isset($b['grupo']) ? $b['grupo'] : '';
+        $paisA = isset($a['pais']) ? $a['pais'] : '';
+        $paisB = isset($b['pais']) ? $b['pais'] : '';
+        $dereachA = isset($a['dereach']) ? (int)$a['dereach'] : 0;
+        $dereachB = isset($b['dereach']) ? (int)$b['dereach'] : 0;
+        if ($grupoA !== $grupoB) return strcmp($grupoA, $grupoB);
+        if ($paisA !== $paisB) return strcmp($paisA, $paisB);
+        if ($dereachA === $dereachB) return 0;
+        return ($dereachA < $dereachB) ? 1 : -1; // descendente
+    });
 
 } catch (PDOException $e) {
     // En caso de error, no cachear la respuesta
@@ -404,6 +292,13 @@ ob_start();
             color: #666;
             font-size: 0.9rem;
         }
+        .blur-on-load {
+            filter: blur(16px);
+            transition: filter 0.5s ease;
+        }
+        .blur-on-load.high-quality-loaded {
+            filter: blur(0);
+        }
     </style>
     <!-- Favicon básico -->
     <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
@@ -447,30 +342,47 @@ ob_start();
             
             // Filtrar documentos por fecha
             $now = new DateTime(); // ahora
-            $yesterdayEvening = new DateTime('yesterday 18:00'); // ayer a las 18:00
+            // Cambiar de yesterdayEvening a 24 horas exactas
+            $yesterday = new DateTime();
+            $yesterday->modify('-24 hours');
             
-            $filtered_documents = array_filter($documents, function($doc) use ($yesterdayEvening, $now) {
-                $date_str = null;
-                
-                if (isset($doc['published_date'])) {
-                    $date_str = $doc['published_date'];
-                } elseif (isset($doc['scraped_at'])) {
-                    $date_str = $doc['scraped_at'];
-                } elseif (isset($doc['created_at'])) {
-                    $date_str = $doc['created_at'];
-                }
-                
+            error_log("Total documentos antes del filtrado: " . count($documents));
+            error_log("Rango de fechas: " . $yesterday->format('Y-m-d H:i:s') . " hasta " . $now->format('Y-m-d H:i:s'));
+            
+            $filtered_documents = array_filter($documents, function($doc) use ($yesterday, $now) {
+                $date_str = isset($doc['published_date']) ? $doc['published_date'] : null;
                 if (!$date_str) return false;
-                
                 try {
                     $doc_date = new DateTime($date_str);
-                    return $doc_date >= $yesterdayEvening && $doc_date <= $now;
+                    $is_in_range = $doc_date >= $yesterday && $doc_date <= $now;
+                    if (!$is_in_range) return false;
                 } catch (Exception $e) {
-                    error_log("Error parsing date: " . $date_str);
                     return false;
                 }
+                // Solo mostrar si visualizar=1
+                if (isset($doc['visualizar']) && $doc['visualizar'] != 1) return false;
+                return true;
             });
-
+            
+            error_log("Total documentos después del filtrado: " . count($filtered_documents));
+            
+            // Desglose por tipo con IDs
+            $type_counts = ['meltwater' => 0, 'cover' => 0, 'resumen' => 0];
+            $type_ids = ['meltwater' => [], 'cover' => [], 'resumen' => []];
+            foreach ($filtered_documents as $doc) {
+                $type = isset($doc['source_type']) ? $doc['source_type'] : 'unknown';
+                if (!isset($type_counts[$type])) {
+                    $type_counts[$type] = 0;
+                    $type_ids[$type] = [];
+                }
+                $type_counts[$type]++;
+                if (isset($doc['id'])) {
+                    $type_ids[$type][] = $doc['id'];
+                }
+            }
+            error_log("Desglose por tipo después del filtrado: " . json_encode($type_counts));
+            error_log("IDs por tipo: " . json_encode($type_ids));
+            
             // Calcular totales por grupo después del filtrado
             foreach ($filtered_documents as $doc) {
                 $grupo = isset($doc['grupo']) ? $doc['grupo'] : 'otros';
@@ -513,111 +425,61 @@ ob_start();
             if (empty($filtered_documents)) {
                 echo '<div style="grid-column: 1/-1; text-align: center; padding: 2em;">
                         <h2>No hay documentos disponibles para el período seleccionado</h2>
-                        <p>Últimas 24 horas: ' . $yesterdayEvening->format('d/m/Y H:i') . ' - ' . $now->format('d/m/Y H:i') . '</p>
+                        <p>Últimas 24 horas: ' . $yesterday->format('d/m/Y H:i') . ' - ' . $now->format('d/m/Y H:i') . '</p>
                         <p>Total documentos en BD: ' . count($documents) . '</p>
                       </div>';
             }
 
             foreach ($filtered_documents as $doc): 
-                // Variables comunes
-                $source_type = $doc['source_type'];
-                  if ($source_type === 'meltwater') {
-                    // Datos de Meltwater
-                    $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
-                    $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : '';
-                    $url_destino = isset($doc['url_destino']) ? htmlspecialchars($doc['url_destino']) : '#';
-                    $content_image = isset($doc['content_image']) ? htmlspecialchars($doc['content_image']) : '';
-                    $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
-                    $external_id = isset($doc['external_id']) ? htmlspecialchars($doc['external_id']) : '';
-                    $published_date = isset($doc['published_date']) ? htmlspecialchars($doc['published_date']) : '';
-                      // Procesar imagen con carga progresiva
-                    $image_paths = '';
-                    if ($content_image) {
-                        $image_paths = downloadImage($content_image, $external_id);
-                    }                  if ($image_paths && is_array($image_paths)) {
-                        $preview_image = isset($image_paths['preview']) ? $image_paths['preview'] : $content_image;
-                        $final_image = $image_paths['original']; // Final high quality image
-                        // Progressive loading: Use preview for non-critical, high quality for critical
-                        $display_image = $preview_image; // Start with preview for progressive loading
-                    } else {
-                        $preview_image = $content_image;
-                        $display_image = $content_image;
-                        $final_image = $content_image;
-                    }} elseif ($source_type === 'cover') {
-                    // Datos de covers - usando nueva estructura organizada
-                    $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
-                    $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : (isset($doc['country']) ? htmlspecialchars($doc['country']) : '');
-                    $url_destino = isset($doc['source']) ? htmlspecialchars($doc['source']) : '#';
-                    $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
-                    $published_date = isset($doc['scraped_at']) ? htmlspecialchars($doc['scraped_at']) : '';
-                      // Usar nueva estructura de previews, thumbnails y originales
-                    $preview_url = isset($doc['preview_url']) ? htmlspecialchars($doc['preview_url']) : '';
-                    $thumbnail_url = isset($doc['thumbnail_url']) ? htmlspecialchars($doc['thumbnail_url']) : '';
-                    $original_url = isset($doc['original_url']) ? htmlspecialchars($doc['original_url']) : '';
-                    $fallback_image = isset($doc['image_url']) ? htmlspecialchars($doc['image_url']) : '';                    // Progressive loading: Use preview for non-critical, high quality for critical
-                    $preview_image = $preview_url ?: $fallback_image;
-                    $content_image = $original_url ?: $fallback_image;
-                    $final_image = $original_url ?: $fallback_image; // Final high quality image
-                    $display_image = $preview_image; // Start with preview for progressive loading
-                    $external_id = isset($doc['source']) ? htmlspecialchars($doc['source']) : '';
-                } elseif ($source_type === 'resumen') {
-                    // Datos de resumen
-                    $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : 'otros';
-                    $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : '';
-                    $content_image = isset($doc['source']) ? htmlspecialchars($doc['source']) : 'img/resumen-placeholder.jpg';
-                    $title = isset($doc['titulo']) ? htmlspecialchars($doc['titulo']) : '(sin título)';
-                    $published_date = isset($doc['created_at']) ? date('Y-m-d H:i:s', strtotime($doc['created_at'])) : date('Y-m-d H:i:s');
-                    $external_id = isset($doc['twitter_id']) ? htmlspecialchars($doc['twitter_id']) : '';
-                      $display_image = $content_image;
-                    $final_image = $content_image;
-                    $url_destino = !empty($external_id) ? 'https://twitter.com/i/status/' . $external_id : '#';
-                }
+                $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
+                $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
+                $pais = isset($doc['pais']) ? htmlspecialchars($doc['pais']) : '';
+                $published_date = isset($doc['published_date']) ? htmlspecialchars($doc['published_date']) : '';
+                $dereach = isset($doc['dereach']) ? htmlspecialchars($doc['dereach']) : '';
+                $source_type = isset($doc['source_type']) ? htmlspecialchars($doc['source_type']) : '';
+                $external_id = isset($doc['external_id']) ? htmlspecialchars($doc['external_id']) : '';
+                $original_url = isset($doc['original_url']) ? htmlspecialchars($doc['original_url']) : '';
+                $thumbnail_url = isset($doc['thumbnail_url']) ? htmlspecialchars($doc['thumbnail_url']) : '';
 
                 // Solo mostrar si hay imagen y título
-                if (empty($content_image) || empty($title)) continue;
+                if (empty($original_url) || empty($title)) continue;
 
-                // Determinar si es una de las primeras 6 imágenes (above the fold)
                 static $image_count = 0;
                 $image_count++;
                 $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
-            ?>                <div class="card" 
-                     data-id="<?= $external_id ? htmlspecialchars($external_id) : ($url_destino ? htmlspecialchars($url_destino) : '') ?>"
-                     data-dereach="<?= isset($doc['dereach']) ? htmlspecialchars($doc['dereach']) : '' ?>"
+                $is_video = (substr($original_url, -4) === '.mp4');
+            ?>
+                <div class="card" 
+                     data-id="<?= $external_id ?>"
+                     data-dereach="<?= $dereach ?>"
                      data-source-type="<?= $source_type ?>"
                      data-grupo="<?= $grupo ?>" 
                      data-external-id="<?= $external_id ?>"
-                     data-published-date="<?= $published_date ?>">                    <div class="image-container" id="img-container-<?= $image_count ?>">                        <?php if ($content_image): ?>                            <?php 
-                            // For critical images (first 6), use high quality directly for LCP optimization
-                            $is_critical = $image_count <= 6;
-                            
-                            if ($is_critical) {
-                                // Critical images: Load high quality immediately for better LCP
-                                $img_src = $final_image;
-                                $use_progressive = false;
-                            } else {
-                                // Non-critical images: Start with preview, upgrade to high quality
-                                $img_src = $display_image;
-                                $use_progressive = isset($final_image) && $final_image !== $display_image;
-                            }
-                            ?>
+                     data-published-date="<?= $published_date ?>">
+                    <div class="image-container" id="img-container-<?= $image_count ?>">
+                        <?php if ($is_video): ?>
+                            <video 
+                                src="<?= $original_url ?>?v=<?= ASSETS_VERSION ?>"
+                                poster="<?= $thumbnail_url ?>"
+                                controls
+                                muted
+                                playsinline
+                                preload="metadata"
+                                style="width:100%;height:auto;max-height:350px;object-fit:contain;background:#000;">
+                                Tu navegador no soporta video.
+                            </video>
+                        <?php else: ?>
                             <img loading="<?= $loading_strategy ?>" 
-                                 src="<?= $img_src ?>?v=<?= ASSETS_VERSION ?>" 
-                                 <?php if ($use_progressive): ?>
-                                 data-final-src="<?= $final_image ?>?v=<?= ASSETS_VERSION ?>"
-                                 data-progressive="true"
-                                 class="progressive-image"
-                                 <?php endif; ?>
+                                 src="<?= $thumbnail_url ?: $original_url ?>?v=<?= ASSETS_VERSION ?>" 
+                                 data-final-src="<?= $original_url ?>?v=<?= ASSETS_VERSION ?>"
+                                 class="progressive-image progressive-blur"
                                  alt="<?= $title ?>" 
                                  onload="this.parentElement.classList.add('loaded')"
                                  onerror="this.parentElement.classList.add('loaded')"
-                                 <?php if ($is_critical): ?>
-                                 fetchpriority="high"
-                                 <?php endif; ?>><?php /* Zoom icon hidden as requested
-                            if ($zoom_image && $zoom_image !== $display_image): ?>
-                                <div class="zoom-icon" data-img="<?= htmlspecialchars($zoom_image) ?>">🔍</div>
-                            <?php endif; */ ?>
+                                 <?php if ($image_count <= 6): ?>fetchpriority="high"<?php endif; ?>>
                         <?php endif; ?>
-                    </div><div class="info">
+                    </div>
+                    <div class="info">
                         <h3><?= $title ?></h3>
                         <?php if ($grupo || $pais): ?>
                             <small class="medio-info">
@@ -630,11 +492,16 @@ ob_start();
                                 <?php endif; ?>
                             </small>
                         <?php endif; ?>
-
                         <?php if ($published_date): ?>
                             <small>
-                               Publicado: <?= date('d/m/Y H:i', strtotime($published_date)) ?>
+                               Publicado: <?= date('d/m/Y', strtotime($published_date)) ?> (<?= date('j \d\e F \d\e\l Y', strtotime($published_date)) ?>)
                             </small>
+                        <?php endif; ?>
+                        <?php if ($dereach): ?>
+                            <small>Reach: <?= $dereach ?></small>
+                        <?php endif; ?>
+                        <?php if ($source_type): ?>
+                            <small>Tipo: <?= $source_type ?></small>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -857,7 +724,7 @@ ob_start();
             const refreshBtn = document.getElementById('refreshBtn');
             refreshBtn.addEventListener('click', async () => {
                 refreshBtn.disabled = true;
-                refreshBtn.textContent = '🔄 Actualizando...';
+                refreshBtn.textContent = 'Actualizando...';
                 
                 try {
                     const response = await fetch('update_melwater.php');
@@ -933,6 +800,23 @@ ob_start();
             // Forzar recarga completa
             window.location.href = url.toString();
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('img.progressive-image').forEach(function(img) {
+                const finalSrc = img.getAttribute('data-final-src');
+                if (finalSrc && finalSrc !== img.src) {
+                    const highResImg = new Image();
+                    highResImg.onload = function() {
+                        img.src = finalSrc;
+                        img.classList.add('high-quality-loaded');
+                        img.classList.remove('progressive-blur');
+                    };
+                    highResImg.src = finalSrc;
+                } else {
+                    img.classList.remove('progressive-blur');
+                }
+            });
+        });
     </script>
 </body>
 </html><?php

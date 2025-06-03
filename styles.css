@@ -473,15 +473,12 @@ body {
 
 /* Progressive image loading styles */
 .progressive-image {
-  transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out;
+  transition: opacity 0.3s ease-in-out, filter 0.5s cubic-bezier(.4,2,.6,1);
   filter: blur(0px);
 }
-
-.progressive-image.loading-high-quality {
-  filter: blur(1px);
-  opacity: 0.8;
+.progressive-image.progressive-blur {
+  filter: blur(16px);
 }
-
 .progressive-image.high-quality-loaded {
   filter: blur(0px);
   opacity: 1;

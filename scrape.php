@@ -312,6 +312,11 @@ function saveImageLocally($imageUrl, $country, $alt) {
     }
 }
 
+function cleanImageUrl($url) {
+    // Eliminar sufijos de dimensiones como -754x1024
+    return preg_replace('/-\d+x\d+(\.[^.]+)$/', '$1', $url);
+}
+
 function storeCover($country, $alt, $urlImg, $sourceLink) {
     try {
         $pdo = getPDO();
@@ -319,6 +324,10 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
             error_log("Error: Failed to get valid PDO instance in storeCover function");
             return false;
         }
+        
+        // Limpiar la URL de la imagen antes de procesarla
+        $urlImg = cleanImageUrl($urlImg);
+        error_log("URL de imagen limpia: " . $urlImg);
         
         $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
         $stmt->execute([':c' => $country, ':u' => $urlImg]);
@@ -511,6 +520,11 @@ foreach ($config['sites'] as $country => $configs) {
                 $node = $crawler->filter($conf['selector']);
                 if ($node->count()) {
                     $urlImg = makeAbsoluteUrl($conf['url'], $node->attr($conf['attribute']));
+                    // Aplicar transformación de URL si está definida
+                    if (isset($conf['transformImageUrl']) && is_callable($conf['transformImageUrl'])) {
+                        $urlImg = $conf['transformImageUrl']($urlImg);
+                        error_log("URL transformada: " . $urlImg);
+                    }
                     error_log("URL de imagen encontrada: " . $urlImg);
                 } else {
                     error_log("No se encontró nodo con el selector: {$conf['selector']}");
@@ -578,3 +592,28 @@ foreach ($config['sites'] as $country => $configs) {
 
 $end = microtime(true);
 echo "\nScraping finalizado a las " . date('H:i:s') . ". Duración: " . round($end - $start, 2) . "s\n";
+
+// Procesar portadas después del scraping
+if (file_exists(__DIR__ . '/process_portadas.php')) {
+    echo "\nIniciando procesamiento de portadas...\n";
+    $process_start = microtime(true);
+    
+    ob_start();
+    $result = include __DIR__ . '/process_portadas.php';
+    $output = ob_get_clean();
+    
+    if ($result === false) {
+        echo "Error procesando portadas\n";
+        error_log("Error procesando portadas después del scraping");
+    } else {
+        $process_end = microtime(true);
+        echo "Procesamiento de portadas completado en " . round($process_end - $process_start, 2) . "s\n";
+    }
+    
+    if (trim($output)) {
+        echo "Salida del procesamiento de portadas:\n" . trim($output) . "\n";
+    }
+} else {
+    echo "\nprocess_portadas.php no encontrado\n";
+    error_log("process_portadas.php no encontrado después del scraping");
+}
