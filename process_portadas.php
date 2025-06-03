@@ -269,6 +269,26 @@ try {
     logMessage("Insertados desde Resumen: " . count($resumen_rows));
 
     logMessage("Total insertados en portadas: $total_inserted");
+
+    // Truncar las tablas de origen después de procesar todo
+    $pdo->exec("TRUNCATE covers");
+    logMessage("Tabla covers vaciada");
+    
+    $pdo->exec("TRUNCATE pk_melwater");
+    logMessage("Tabla pk_melwater vaciada");
+
+    // Limpiar directorio de imágenes de Meltwater
+    $melwater_dir = __DIR__ . '/images/melwater';
+    if (is_dir($melwater_dir)) {
+        $files = glob($melwater_dir . '/*');
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+        logMessage("Directorio images/melwater limpiado");
+    }
+
     header('Content-Type: application/json');
     echo json_encode([
         'success' => true,

@@ -1,6 +1,9 @@
 <?php
 header('Content-Type: application/json');
 
+require_once 'download_image.php';
+require_once 'optimized-image-processor.php';
+
 // Cargar configuración de la base de datos
 $cfg = require 'config.php';
 
@@ -108,6 +111,43 @@ try {
         $external_id = isset($doc['author']['external_id']) ? $doc['author']['external_id'] : '';
         $published_date = isset($doc['published_date']) ? $doc['published_date'] : '';
         $source_id = isset($doc['source']['id']) ? $doc['source']['id'] : '';
+        
+        // Procesar la imagen si existe
+        if ($content_image && $external_id) {
+            try {
+                // Crear directorios si no existen
+                $melwater_dir = __DIR__ . '/images/melwater';
+                $previews_dir = $melwater_dir . '/previews';
+                foreach ([$melwater_dir, $previews_dir] as $dir) {
+                    if (!file_exists($dir)) {
+                        mkdir($dir, 0755, true);
+                    }
+                }
+
+                // Descargar y procesar la imagen
+                $image_data = file_get_contents($content_image);
+                if ($image_data !== false) {
+                    $temp_file = tempnam(sys_get_temp_dir(), 'melwater_');
+                    file_put_contents($temp_file, $image_data);
+
+                    // Procesar imagen original
+                    $original_path = $melwater_dir . '/' . $external_id . '_original.webp';
+                    if (convertToWebP($temp_file, $original_path, 90)) {
+                        // Procesar preview
+                        $preview_path = $previews_dir . '/' . $external_id . '_preview.webp';
+                        if (convertToWebP($temp_file, $preview_path, 40, 320, 480)) {
+                            // Actualizar la URL de la imagen en la base de datos
+                            $content_image = '/images/melwater/' . $external_id . '_original.webp';
+                        }
+                    }
+
+                    // Limpiar archivo temporal
+                    unlink($temp_file);
+                }
+            } catch (Exception $e) {
+                error_log("Error procesando imagen para {$external_id}: " . $e->getMessage());
+            }
+        }
         
         // Debug para el ID específico
         if ($external_id === '8105922') {

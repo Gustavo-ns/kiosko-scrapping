@@ -161,30 +161,7 @@ $lastScrapeDate = $stmt->fetchColumn() ?: '2000-01-01';
 
 $hoy = date('Y-m-d');
 if ($lastScrapeDate !== $hoy) {
-    echo "Limpiando imágenes y reiniciando base de datos (última fecha: $lastScrapeDate)...\n";
-
-    // Limpiar directorios de imágenes organizados
-    $imageDirs = [
-        __DIR__ . '/images/',
-        __DIR__ . '/images/covers/',
-        __DIR__ . '/images/covers/thumbnails/',
-        __DIR__ . '/images/melwater/',
-        __DIR__ . '/images/melwater/thumbnails/'
-    ];
-    
-    foreach ($imageDirs as $imagesDir) {
-        if (is_dir($imagesDir)) {
-            $files = glob($imagesDir . '*');
-            foreach ($files as $file) {
-                if (is_file($file)) unlink($file);
-            }
-        } else {
-            mkdir($imagesDir, 0777, true);
-        }
-    }
-
-    $pdo->exec('TRUNCATE TABLE covers');
-
+    echo "Iniciando scraping (última fecha: $lastScrapeDate)...\n";
     $update = $pdo->prepare("REPLACE INTO configs (name, value) VALUES ('last_scrape_date', :fecha)");
     $update->execute([':fecha' => $hoy]);
 }
@@ -268,8 +245,8 @@ function saveImageLocally($imageUrl, $country, $alt) {
                 'original' => 'images/covers/' . $original_filename
             ];
         }        // Convertir a WebP y crear versión original
-        if (convertToWebP($tempFile, $original_filepath, 90)) {            // Crear miniatura con las nuevas dimensiones
-            if (convertToWebP($tempFile, $thumb_filepath, 80, 600, 900)) {
+        if (convertToWebP($tempFile, $original_filepath, 90)) {            // Crear miniatura con dimensiones estándar (igual que Meltwater)
+            if (convertToWebP($tempFile, $thumb_filepath, 80, 400, 600)) {
                 // Crear preview de muy baja calidad para carga rápida inicial (320px ancho)
                 if (convertToWebP($tempFile, $preview_filepath, 40, 320, 480)) {
                     unlink($tempFile);
@@ -285,8 +262,8 @@ function saveImageLocally($imageUrl, $country, $alt) {
         
         // Fallback: usar el procesador optimizado si WebP falla
         $result = processOptimizedImage($tempFile, $upload_dir, [
-            'max_width' => 600,
-            'max_height' => 900,
+            'max_width' => 400,  // Actualizado para coincidir con las dimensiones de Meltwater
+            'max_height' => 600, // Actualizado para coincidir con las dimensiones de Meltwater
             'quality' => 85,
             'prefer_webp' => true,
             'strip_metadata' => true
@@ -592,6 +569,32 @@ foreach ($config['sites'] as $country => $configs) {
 
 $end = microtime(true);
 echo "\nScraping finalizado a las " . date('H:i:s') . ". Duración: " . round($end - $start, 2) . "s\n";
+
+// Limpiar directorios y tabla al finalizar
+if ($lastScrapeDate !== $hoy) {
+    echo "Limpiando imágenes y reiniciando base de datos...\n";
+
+    // Limpiar directorios de imágenes organizados
+    $imageDirs = [
+        __DIR__ . '/images/',
+        __DIR__ . '/images/covers/',
+        __DIR__ . '/images/covers/thumbnails/',
+    ];
+    
+    foreach ($imageDirs as $imagesDir) {
+        if (is_dir($imagesDir)) {
+            $files = glob($imagesDir . '*');
+            foreach ($files as $file) {
+                if (is_file($file)) unlink($file);
+            }
+        } else {
+            mkdir($imagesDir, 0777, true);
+        }
+    }
+
+    $pdo->exec('TRUNCATE TABLE covers');
+    echo "Limpieza completada.\n";
+}
 
 // Procesar portadas después del scraping
 if (file_exists(__DIR__ . '/process_portadas.php')) {

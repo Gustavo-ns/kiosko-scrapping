@@ -209,6 +209,8 @@ ob_start();
             background-color: #f4f4f4;
             color: #474747;            margin: 0;
             padding: 0;
+            /* Evitar reflow forzado */
+            contain: layout style paint;
         }
         .skip-link:focus {
             top: 6px;
@@ -240,8 +242,10 @@ ob_start();
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 1.5rem;
             padding: 3rem;
-            content-visibility: auto;
-            contain-intrinsic-size: 400px;
+            /* Optimizar layout */
+            contain: layout style;
+            will-change: transform;
+            transform: translateZ(0);
         }.card {
             position: relative;
             overflow: hidden;
@@ -252,10 +256,9 @@ ob_start();
             transition: transform 0.4s ease, box-shadow 0.4s ease;
             cursor: pointer;
             transform-style: preserve-3d;            will-change: transform;
-            content-visibility: auto;
-            contain-intrinsic-size: 400px;
-            display: grid;
-            grid-template-rows: auto 1fr;
+            /* Optimizar layout */
+            contain: layout style paint;
+            transform: translateZ(0);
         }        .image-container {
             position: relative;
             width: 100%;
@@ -265,6 +268,10 @@ ob_start();
             align-items: center;
             justify-content: center;
             min-height: 250px;
+            /* Optimizar layout */
+            contain: layout style;
+            will-change: transform;
+            transform: translateZ(0);
         }.card img {
             position: relative;
             width: 100%;
@@ -275,26 +282,38 @@ ob_start();
             opacity: 0;
             transition: opacity 0.3s ease;
             z-index: 1;
+            /* Optimizar layout */
+            will-change: opacity;
+            transform: translateZ(0);
         }
         .card img.loaded {
             opacity: 1;
         }
         .info {
             padding: 1rem;
+            /* Optimizar layout */
+            contain: layout style;
         }
         .info h3 {
             margin: 0 0 0.5rem;
             font-size: 1.2rem;
             line-height: 1.4;
+            /* Optimizar layout */
+            contain: layout style;
         }
         .info small {
             display: block;
             color: #666;
             font-size: 0.9rem;
+            /* Optimizar layout */
+            contain: layout style;
         }
         .blur-on-load {
             filter: blur(16px);
             transition: filter 0.5s ease;
+            /* Optimizar layout */
+            will-change: filter;
+            transform: translateZ(0);
         }
         .blur-on-load.high-quality-loaded {
             filter: blur(0);
@@ -430,6 +449,16 @@ ob_start();
                       </div>';
             }
 
+            // Preload de la primera imagen crítica para LCP
+            if (!empty($filtered_documents)) {
+                $first_doc = reset($filtered_documents);
+                $first_image_url = isset($first_doc['original_url']) ? $first_doc['original_url'] : '';
+                if ($first_image_url) {
+                    echo '<link rel="preload" as="image" href="' . htmlspecialchars($first_image_url) . '?v=' . ASSETS_VERSION . '" fetchpriority="high">';
+                }
+            }
+
+            $first_image = true; // Flag para identificar la primera imagen
             foreach ($filtered_documents as $doc): 
                 $title = isset($doc['title']) ? htmlspecialchars($doc['title']) : '';
                 $grupo = isset($doc['grupo']) ? htmlspecialchars($doc['grupo']) : '';
@@ -446,7 +475,8 @@ ob_start();
 
                 static $image_count = 0;
                 $image_count++;
-                $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
+                // La primera imagen siempre será eager y high priority
+                $loading_strategy = $first_image ? 'eager' : 'lazy';
                 $is_video = (substr($original_url, -4) === '.mp4');
             ?>
                 <div class="card" 
@@ -470,22 +500,21 @@ ob_start();
                             </video>
                         <?php else: ?>
                             <img loading="<?= $loading_strategy ?>" 
-                                 src="<?= $thumbnail_url ?: $original_url ?>?v=<?= ASSETS_VERSION ?>" 
-                                 data-final-src="<?= $original_url ?>?v=<?= ASSETS_VERSION ?>"
-                                 class="progressive-image progressive-blur"
+                                 src="<?= $thumbnail_url ?>?v=<?= ASSETS_VERSION ?>" 
+                                 data-original="<?= $original_url ?>?v=<?= ASSETS_VERSION ?>"
+                                 <?php if ($first_image): ?>
+                                 fetchpriority="high"
+                                 decoding="sync"
+                                 importance="high"
+                                 <?php endif; ?>
                                  alt="<?= $title ?>" 
+                                 class="progressive-image"
                                  onload="this.parentElement.classList.add('loaded')"
-                                 onerror="this.parentElement.classList.add('loaded')"
-                                 <?php if ($image_count <= 6): ?>fetchpriority="high"<?php endif; ?>>
+                                 onerror="this.parentElement.classList.add('loaded')">
                         <?php endif; ?>
                     </div>
                     <div class="info">
                         <h3><?= $title ?></h3>
-                        <?php if ($grupo): ?>
-                            <small class="medio-info">
-                                <?= $grupo ?>
-                            </small>
-                        <?php endif; ?>
                         <?php if ($pais): ?>
                             <small class="medio-info">
                                 <?= $pais ?>
@@ -498,7 +527,10 @@ ob_start();
                         <?php endif; ?>
                     </div>
                 </div>
-            <?php endforeach; ?>
+            <?php 
+                $first_image = false; // Después de la primera imagen, establecer en false
+            endforeach; 
+            ?>
         </div>
     </div>    <div id="imageModal" class="modal">
         <span class="close">&times;</span>
@@ -534,190 +566,138 @@ ob_start();
             // Performance monitoring
             const perfStart = performance.now();
             
-            // 1. Preload optimizado de imágenes above-the-fold con manejo mejorado de eventos
-            const criticalImages = document.querySelectorAll('.card:nth-child(-n+6) img[fetchpriority="high"]');
-            let loadedCriticalImages = 0;
-            
-            const handleImageLoad = (img, isError = false) => {
-                img.parentElement.classList.add('loaded');
-                if (!isError) {
-                    loadedCriticalImages++;
-                    // Dispatch evento personalizado cuando todas las imágenes críticas estén cargadas
-                    if (loadedCriticalImages === criticalImages.length) {
-                        document.dispatchEvent(new CustomEvent('criticalImagesLoaded', {
-                            detail: { loadTime: performance.now() - perfStart }
-                        }));
-                    }
-                }
-            };
+            // Batch DOM updates
+            const updateQueue = [];
+            let isUpdating = false;
 
-            criticalImages.forEach((img) => {
-                if (!img.complete) {
-                    img.addEventListener('load', () => handleImageLoad(img), { once: true });
-                    img.addEventListener('error', () => handleImageLoad(img, true), { once: true });
-                } else {
-                    // Si la imagen ya está cargada
-                    handleImageLoad(img);
+            function batchUpdate(callback) {
+                updateQueue.push(callback);
+                if (!isUpdating) {
+                    isUpdating = true;
+                    requestAnimationFrame(() => {
+                        const updates = updateQueue.splice(0);
+                        updates.forEach(update => update());
+                        isUpdating = false;
+                    });
                 }
+            }
+
+            // Función para cargar imágenes progresivamente
+            function loadProgressiveImages() {
+                const images = document.querySelectorAll('.progressive-image');
+                images.forEach(img => {
+                    if (img.dataset.progressiveState === 'loading' || img.dataset.progressiveState === 'loaded') {
+                        return;
+                    }
+
+                    img.dataset.progressiveState = 'loading';
+                    const originalSrc = img.dataset.original;
+                    const highResImg = new Image();
+
+                    highResImg.onload = () => {
+                        batchUpdate(() => {
+                            img.src = originalSrc;
+                            img.classList.add('high-quality-loaded');
+                            img.dataset.progressiveState = 'loaded';
+                        });
+                    };
+
+                    highResImg.onerror = () => {
+                        img.dataset.progressiveState = 'error';
+                    };
+
+                    highResImg.src = originalSrc;
+                });
+            }
+
+            // Cargar imágenes progresivamente después de que la página esté lista
+            window.addEventListener('load', () => {
+                // Esperar a que las imágenes críticas estén cargadas
+                setTimeout(loadProgressiveImages, 100);
             });
 
-            // 2. Lazy loading optimizado para imágenes restantes con mejor performance
+            // También cargar imágenes progresivamente cuando sean visibles
             if ('IntersectionObserver' in window) {
-                const lazyImages = document.querySelectorAll('img[loading="lazy"]');
-                const imageObserver = new IntersectionObserver((entries, observer) => {
+                const imageObserver = new IntersectionObserver((entries) => {
                     entries.forEach(entry => {
                         if (entry.isIntersecting) {
                             const img = entry.target;
-                            img.addEventListener('load', () => handleImageLoad(img), { once: true });
-                            img.addEventListener('error', () => handleImageLoad(img, true), { once: true });
-                            observer.unobserve(img);
+                            if (img.classList.contains('progressive-image')) {
+                                loadProgressiveImages();
+                                imageObserver.unobserve(img);
+                            }
                         }
                     });
                 }, {
                     rootMargin: '50px 0px',
                     threshold: 0.1
-                });                lazyImages.forEach(img => imageObserver.observe(img));
-            }
+                });
 
-            // 2.5. Progressive image loading - upgrade from preview to high quality
-            function setupProgressiveImageLoading() {
-                const progressiveImages = document.querySelectorAll('img[data-progressive="true"]');
-                
-                progressiveImages.forEach(img => {
-                    const finalSrc = img.dataset.finalSrc;
-                    const container = img.parentElement;
-                    
-                    // Skip if already loading or loaded high quality
-                    if (img.dataset.progressiveState === 'loading' || img.dataset.progressiveState === 'loaded') {
-                        return;
-                    }
-                    
-                    // Mark as loading high quality version
-                    img.dataset.progressiveState = 'loading';
-                    img.classList.add('loading-high-quality');
-                    container.classList.add('progressive-loading');
-                    
-                    // Create new image to preload high quality version
-                    const highQualityImg = new Image();
-                    
-                    highQualityImg.onload = () => {
-                        // Smoothly transition to high quality image
-                        img.src = finalSrc;
-                        img.classList.remove('loading-high-quality');
-                        img.classList.add('high-quality-loaded');
-                        container.classList.remove('progressive-loading');
-                        img.dataset.progressiveState = 'loaded';
-                    };
-                    
-                    highQualityImg.onerror = () => {
-                        // If high quality fails, keep the preview
-                        img.classList.remove('loading-high-quality');
-                        container.classList.remove('progressive-loading');
-                        img.dataset.progressiveState = 'error';
-                    };
-                    
-                    // Start loading high quality image
-                    highQualityImg.src = finalSrc;
+                document.querySelectorAll('.progressive-image').forEach(img => {
+                    imageObserver.observe(img);
                 });
             }
-            
-            // Start progressive loading after critical images are loaded
-            document.addEventListener('criticalImagesLoaded', () => {
-                // Delay progressive loading to avoid competing with critical images
-                setTimeout(setupProgressiveImageLoading, 500);
-            });
-            
-            // Also trigger progressive loading after page load as fallback
-            window.addEventListener('load', () => {
-                setTimeout(setupProgressiveImageLoading, 1000);
-            });// 3. Configuración del modal de imágenes
-            const imageModal = document.getElementById('imageModal');
-            const modalImage = document.getElementById('modalImage');
-            const modalLoader = document.getElementById('modalLoader');
-            const closeModal = imageModal.querySelector('.close');
-            
-            // 4. Configuración de filtros y funcionalidad principal
-            const grupoSelect = document.getElementById('grupoSelect');
-            const gallery = document.getElementById('gallery');
 
-            function showModal(imageUrl) {
-                modalImage.style.display = 'none';
-                modalLoader.style.display = 'block';
-                imageModal.classList.add('show');
-                imageModal.style.display = 'flex';
-                modalImage.onload = () => {
-                    modalLoader.style.display = 'none';
-                    modalImage.style.display = 'block';
-                };
-                modalImage.src = imageUrl;
-            }
-
-            closeModal.addEventListener('click', () => {
-                imageModal.style.display = 'none';
-                modalImage.src = '';
-                imageModal.classList.remove('show');
-            });
-
-            window.addEventListener('click', e => {
-                if (e.target === imageModal) {
-                    imageModal.style.display = 'none';
-                    modalImage.src = '';
-                    imageModal.classList.remove('show');
-                }
-            });            /* Zoom icon functionality removed as requested
-            document.querySelectorAll('.zoom-icon').forEach(icon => {
-                icon.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const imageUrl = icon.dataset.img;
-                    if (imageUrl) showModal(imageUrl);
-                });
-            });
-            */
-
-            const params = new URLSearchParams(window.location.search);
-            const initialGrupo = params.get('grupo') || '';
-
-            grupoSelect.value = initialGrupo;
-
-            function updateURL() {
-                const url = new URL(window.location);
-                const grupo = grupoSelect.value;
-
-                if (grupo) url.searchParams.set('grupo', grupo);
-                else url.searchParams.delete('grupo');
-
-                history.replaceState(null, '', url);
-            }
-
+            // Optimizar filtrado de tarjetas
             function filterCards() {
                 const selectedGrupo = grupoSelect.value;
-                
                 const cards = gallery.querySelectorAll('.card');
-                cards.forEach(card => {
-                    const cardGrupo = card.dataset.grupo;
-                    const matchesGrupo = !selectedGrupo || cardGrupo === selectedGrupo;
-
-                    if (matchesGrupo) {
-                        card.style.display = '';
-                    } else {
-                        card.style.display = 'none';
-                    }
+                
+                batchUpdate(() => {
+                    cards.forEach(card => {
+                        const cardGrupo = card.dataset.grupo;
+                        const matchesGrupo = !selectedGrupo || cardGrupo === selectedGrupo;
+                        card.style.display = matchesGrupo ? '' : 'none';
+                    });
                 });
 
                 updateURL();
             }
 
+            // Optimizar actualización de URL
+            function updateURL() {
+                const url = new URL(window.location);
+                const grupo = grupoSelect.value;
+                
+                batchUpdate(() => {
+                    if (grupo) url.searchParams.set('grupo', grupo);
+                    else url.searchParams.delete('grupo');
+                    history.replaceState(null, '', url);
+                });
+            }
+
+            // Optimizar modal
+            function showModal(imageUrl) {
+                batchUpdate(() => {
+                    modalImage.style.display = 'none';
+                    modalLoader.style.display = 'block';
+                    imageModal.classList.add('show');
+                    imageModal.style.display = 'flex';
+                });
+
+                modalImage.onload = () => {
+                    batchUpdate(() => {
+                        modalLoader.style.display = 'none';
+                        modalImage.style.display = 'block';
+                    });
+                };
+                modalImage.src = imageUrl;
+            }
+
+            // Event listeners optimizados
             grupoSelect.addEventListener('change', filterCards);
             
             if (initialGrupo) {
                 filterCards();
             }
 
+            // Optimizar recarga
             const refreshBtn = document.getElementById('refreshBtn');
             refreshBtn.addEventListener('click', async () => {
-                refreshBtn.disabled = true;
-                refreshBtn.textContent = 'Actualizando...';
+                batchUpdate(() => {
+                    refreshBtn.disabled = true;
+                    refreshBtn.textContent = 'Actualizando...';
+                });
                 
                 try {
                     const response = await fetch('update_melwater.php');
@@ -730,47 +710,13 @@ ob_start();
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    alert('Error al actualizar los datos');                } finally {
-                    refreshBtn.disabled = false;
-                    refreshBtn.textContent = '🔄 Actualizar';
+                    alert('Error al actualizar los datos');
+                } finally {
+                    batchUpdate(() => {
+                        refreshBtn.disabled = false;
+                        refreshBtn.textContent = '🔄 Actualizar';
+                    });
                 }
-            });
-
-            // 5. Performance monitoring y reporte
-            document.addEventListener('criticalImagesLoaded', (event) => {
-                const loadTime = event.detail.loadTime;
-                console.log(`Imágenes críticas cargadas en ${loadTime.toFixed(2)}ms`);
-                
-                // Reportar Core Web Vitals si están disponibles
-                if ('PerformanceObserver' in window) {
-                    try {
-                        // Largest Contentful Paint
-                        new PerformanceObserver((entryList) => {
-                            const entries = entryList.getEntries();
-                            const lcpEntry = entries[entries.length - 1];
-                            console.log('LCP:', lcpEntry.startTime.toFixed(2) + 'ms');
-                        }).observe({ entryTypes: ['largest-contentful-paint'] });
-
-                        // Cumulative Layout Shift
-                        new PerformanceObserver((entryList) => {
-                            let clsValue = 0;
-                            for (const entry of entryList.getEntries()) {
-                                if (!entry.hadRecentInput) {
-                                    clsValue += entry.value;
-                                }
-                            }
-                            if (clsValue > 0) {
-                                console.log('CLS:', clsValue.toFixed(4));
-                            }
-                        }).observe({ entryTypes: ['layout-shift'] });
-                    } catch (e) {
-                        // Observer no disponible en este navegador
-                    }
-                }
-            });            // Log final de rendimiento
-            window.addEventListener('load', () => {
-                const loadTime = performance.now() - perfStart;
-                console.log(`Aplicación completamente cargada en ${loadTime.toFixed(2)}ms`);
             });
         });
 
