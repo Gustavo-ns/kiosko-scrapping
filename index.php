@@ -481,27 +481,20 @@ ob_start();
                     </div>
                     <div class="info">
                         <h3><?= $title ?></h3>
-                        <?php if ($grupo || $pais): ?>
+                        <?php if ($grupo): ?>
                             <small class="medio-info">
-                                <?php if ($grupo && $pais): ?>
-                                    <?= $grupo ?> - <?= $pais ?>
-                                <?php elseif ($grupo): ?>
-                                    <?= $grupo ?>
-                                <?php elseif ($pais): ?>
-                                    <?= $pais ?>
-                                <?php endif; ?>
+                                <?= $grupo ?>
+                            </small>
+                        <?php endif; ?>
+                        <?php if ($pais): ?>
+                            <small class="medio-info">
+                                <?= $pais ?>
                             </small>
                         <?php endif; ?>
                         <?php if ($published_date): ?>
                             <small>
-                               Publicado: <?= date('d/m/Y', strtotime($published_date)) ?> (<?= date('j \d\e F \d\e\l Y', strtotime($published_date)) ?>)
+                            <?= date('j \d\e F \d\e\l Y, H:i', strtotime($published_date)) ?> hs
                             </small>
-                        <?php endif; ?>
-                        <?php if ($dereach): ?>
-                            <small>Reach: <?= $dereach ?></small>
-                        <?php endif; ?>
-                        <?php if ($source_type): ?>
-                            <small>Tipo: <?= $source_type ?></small>
                         <?php endif; ?>
                     </div>
                 </div>

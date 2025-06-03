@@ -139,6 +139,17 @@ try {
         ));
     }
     
+    // 4. Procesar portadas
+    if (file_exists(__DIR__ . '/process_portadas.php')) {
+        logEvent("Iniciando procesamiento de portadas");
+        if (!executeScript(__DIR__ . '/process_portadas.php')) {
+            throw new Exception("Error procesando portadas");
+        }
+        logEvent("Procesamiento de portadas completado");
+    } else {
+        logEvent("process_portadas.php no encontrado", 'WARNING');
+    }
+    
     $memory_usage = memory_get_peak_usage(true) / 1024 / 1024;
     logEvent(sprintf(
         "Uso máximo de memoria: %.2f MB",
