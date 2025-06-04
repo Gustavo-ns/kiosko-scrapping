@@ -131,18 +131,42 @@ try {
                     file_put_contents($temp_file, $image_data);
 
                     // Procesar imagen original
-                    $original_path = $melwater_dir . '/' . $external_id . '_original.webp';
+                    $original_filename = $external_id . '_original.webp';
+                    $original_path = $melwater_dir . '/' . $original_filename;
+                    
                     if (convertToWebP($temp_file, $original_path, 90)) {
-                        // Procesar preview
-                        $preview_path = $previews_dir . '/' . $external_id . '_preview.webp';
+                        // Procesar preview - Asegurar que el nombre del archivo tenga el formato correcto
+                        $preview_filename = $external_id . '_preview.webp';
+                        $preview_path = $previews_dir . '/' . $preview_filename;
+                        
+                        // Verificar que el nombre del archivo tenga el formato correcto
+                        if (strpos($preview_filename, '_preview.webp') === false) {
+                            error_log("Error: Formato incorrecto del nombre del archivo preview para {$external_id}");
+                            continue;
+                        }
+                        
                         if (convertToWebP($temp_file, $preview_path, 40, 320, 480)) {
                             // Actualizar la URL de la imagen en la base de datos
-                            $content_image = '/images/melwater/' . $external_id . '_original.webp';
+                            // Usar rutas relativas sin slash inicial
+                            $content_image = 'images/melwater/' . $original_filename;
+                            
+                            // Verificar que los archivos existen y tienen el formato correcto
+                            if (!file_exists($original_path) || !file_exists($preview_path)) {
+                                error_log("Error: Archivos de imagen no creados correctamente para {$external_id}");
+                                error_log("Original path: {$original_path}");
+                                error_log("Preview path: {$preview_path}");
+                            }
+                        } else {
+                            error_log("Error al crear preview para {$external_id}");
                         }
+                    } else {
+                        error_log("Error al crear imagen original para {$external_id}");
                     }
 
                     // Limpiar archivo temporal
                     unlink($temp_file);
+                } else {
+                    error_log("Error al descargar imagen para {$external_id}");
                 }
             } catch (Exception $e) {
                 error_log("Error procesando imagen para {$external_id}: " . $e->getMessage());

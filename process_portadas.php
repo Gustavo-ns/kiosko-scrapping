@@ -166,8 +166,22 @@ try {
         if (empty($row['medio_title'])) continue;
         $key = mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach'] . '|meltwater';
         if (isset($inserted_keys[$key])) continue;
-        $original_url = '/images/melwater/' . $row['external_id'] . '_original.webp';
-        $thumbnail_url = '/images/melwater/previews/' . $row['external_id'] . 'previews.webp';
+        
+        // Corregir el formato de las URLs de las imágenes
+        $original_url = 'images/melwater/' . $row['external_id'] . '_original.webp';
+        $thumbnail_url = 'images/melwater/previews/' . $row['external_id'] . '_preview.webp';
+        
+        // Verificar que los archivos existan antes de insertar
+        $original_path = __DIR__ . '/' . $original_url;
+        $thumbnail_path = __DIR__ . '/' . $thumbnail_url;
+        
+        if (!file_exists($original_path) || !file_exists($thumbnail_path)) {
+            logMessage("Error: Archivos de imagen no encontrados para {$row['external_id']}", 'ERROR');
+            logMessage("Original path: {$original_path}", 'ERROR');
+            logMessage("Thumbnail path: {$thumbnail_path}", 'ERROR');
+            continue;
+        }
+        
         $insert = $pdo->prepare("INSERT INTO portadas (title, grupo, pais, published_date, dereach, source_type, external_id, visualizar, original_url, thumbnail_url, indexed_date) VALUES (:title, :grupo, :pais, :published_date, :dereach, 'meltwater', :external_id, :visualizar, :original_url, :thumbnail_url, NOW())");
         $insert->execute([
             'title' => mb_substr($row['medio_title'], 0, 255),
@@ -277,16 +291,33 @@ try {
     $pdo->exec("TRUNCATE pk_melwater");
     logMessage("Tabla pk_melwater vaciada");
 
-    // Limpiar directorio de imágenes de Meltwater
+    // Limpiar solo archivos temporales en el directorio de Meltwater
     $melwater_dir = __DIR__ . '/images/melwater';
     if (is_dir($melwater_dir)) {
+        // Obtener lista de archivos originales que están en uso
+        $stmt = $pdo->query("SELECT external_id FROM portadas WHERE source_type = 'meltwater'");
+        $active_files = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Crear un array de nombres de archivos que deben mantenerse
+        $keep_files = [];
+        foreach ($active_files as $external_id) {
+            $keep_files[] = $external_id . '_original.webp';
+            $keep_files[] = $external_id . '_preview.webp';
+        }
+        
+        // Obtener todos los archivos en el directorio
         $files = glob($melwater_dir . '/*');
         foreach ($files as $file) {
             if (is_file($file)) {
-                unlink($file);
+                $filename = basename($file);
+                // Solo borrar si no está en la lista de archivos a mantener
+                if (!in_array($filename, $keep_files)) {
+                    unlink($file);
+                    logMessage("Archivo temporal eliminado: $filename");
+                }
             }
         }
-        logMessage("Directorio images/melwater limpiado");
+        logMessage("Limpieza de archivos temporales completada");
     }
 
     header('Content-Type: application/json');

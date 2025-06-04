@@ -153,6 +153,9 @@ ob_start();
     <meta http-equiv='expires' content='0'>
     <meta http-equiv='pragma' content='no-cache'>
     
+    <!-- URL Canónica -->
+    <link rel="canonical" href="https://newsroom.eyewatch.me/" />
+    
     <!-- Timestamp para evitar caché del navegador -->
     <script>
         // Forzar recarga cada hora
@@ -171,17 +174,21 @@ ob_start();
         $filtered_documents = [];
     }
     
-    $critical_images = array_slice($filtered_documents, 0, 3);
+    $critical_images = array_slice($filtered_documents, 0, 6);
     foreach ($critical_images as $doc) {
         $source_type = $doc['source_type'];
         $image_url = '';
-          if ($source_type === 'meltwater' && isset($doc['content_image'])) {
+        $thumbnail_url = '';
+        
+        if ($source_type === 'meltwater' && isset($doc['content_image'])) {
             // Para Meltwater, tratar de obtener la imagen original si existe
             $external_id = isset($doc['external_id']) ? $doc['external_id'] : '';
             if ($external_id) {
                 $original_path = "images/melwater/{$external_id}_original.webp";
+                $thumbnail_path = "images/melwater/previews/{$external_id}_preview.webp";
                 if (file_exists($original_path)) {
                     $image_url = $original_path;
+                    $thumbnail_url = $thumbnail_path;
                 } else {
                     $image_url = $doc['content_image'];
                 }
@@ -189,10 +196,9 @@ ob_start();
                 $image_url = $doc['content_image'];
             }
         } elseif ($source_type === 'cover') {
-            // Para covers, usar la imagen original de alta calidad
-            $image_url = isset($doc['original_url']) ? $doc['original_url'] : 
-                        (isset($doc['thumbnail_url']) ? $doc['thumbnail_url'] :
-                        (isset($doc['image_url']) ? $doc['image_url'] : ''));
+            // Para covers, usar la imagen original y thumbnail de alta calidad
+            $image_url = isset($doc['original_url']) ? $doc['original_url'] : '';
+            $thumbnail_url = isset($doc['thumbnail_url']) ? $doc['thumbnail_url'] : '';
         } elseif ($source_type === 'resumen' && isset($doc['source'])) {
             $image_url = $doc['source'];
         }
@@ -200,34 +206,76 @@ ob_start();
         if ($image_url): ?>
     <link rel="preload" as="image" href="<?= htmlspecialchars($image_url) ?>?v=<?= ASSETS_VERSION ?>" fetchpriority="high">
         <?php endif;
+        if ($thumbnail_url): ?>
+    <link rel="preload" as="image" href="<?= htmlspecialchars($thumbnail_url) ?>?v=<?= ASSETS_VERSION ?>" fetchpriority="high">
+        <?php endif;
     } ?>
     
-    <style>        /* Critical CSS */
-        body {
-            font-family: 'Bebas Neue', 'Arial Black', 'Helvetica Bold', Arial, sans-serif;
-            font-display: swap;
-            background-color: #f4f4f4;
-            color: #474747;            margin: 0;
-            padding: 0;
-            /* Evitar reflow forzado */
-            contain: layout style paint;
+    <style>
+        /* Critical CSS */
+        :root {
+            --primary-color: #1e1e1e;
+            --secondary-color: #f4f4f4;
+            --accent-color: #ff6b35;
+            --text-color: #474747;
+            --card-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            --transition-speed: 0.3s;
         }
+
+        /* Optimización de fuentes */
+        @font-face {
+            font-family: 'Bebas Neue';
+            font-display: swap;
+            src: local('Bebas Neue'),
+                 url('https://fonts.gstatic.com/s/bebasneue/v14/JTUSjIg69CK48gW7PXoo9Wlhyw.woff2') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+
+        body {
+            font-family: 'Bebas Neue', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            contain: layout style paint;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 6px;
+            background: var(--primary-color);
+            color: #fff;
+            padding: 8px;
+            text-decoration: none;
+            z-index: 9999;
+            transition: top var(--transition-speed) ease;
+        }
+
         .skip-link:focus {
             top: 6px;
         }
+
         .controls {
             display: flex;
             padding: 1rem;
-            background: #1e1e1e;
+            background: var(--primary-color);
             flex-direction: column;
             flex-wrap: wrap;
             align-content: space-around;
             justify-content: center;
             align-items: center;
+            contain: layout style;
         }
+
         .controls label {
             color: #f0f0f0;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
         }
+
         #grupoSelect {
             font-size: 1.2rem;
             padding: 0.5rem 1rem;
@@ -236,30 +284,44 @@ ob_start();
             border: 2px solid #444;
             border-radius: 8px;
             outline: none;
-            transition: border-color 0.3s;
-        }        .gallery {
+            transition: border-color var(--transition-speed);
+            cursor: pointer;
+        }
+
+        #grupoSelect:hover {
+            border-color: var(--accent-color);
+        }
+
+        .gallery {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 1.5rem;
             padding: 3rem;
-            /* Optimizar layout */
             contain: layout style;
             will-change: transform;
             transform: translateZ(0);
-        }.card {
+        }
+
+        .card {
             position: relative;
             overflow: hidden;
-            min-height: auto;
             background: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            transition: transform 0.4s ease, box-shadow 0.4s ease;
+            box-shadow: var(--card-shadow);
+            transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
             cursor: pointer;
-            transform-style: preserve-3d;            will-change: transform;
-            /* Optimizar layout */
+            transform-style: preserve-3d;
+            will-change: transform;
             contain: layout style paint;
             transform: translateZ(0);
-        }        .image-container {
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        }
+
+        .image-container {
             position: relative;
             width: 100%;
             background: #f0f0f0;
@@ -268,11 +330,12 @@ ob_start();
             align-items: center;
             justify-content: center;
             min-height: 250px;
-            /* Optimizar layout */
             contain: layout style;
             will-change: transform;
             transform: translateZ(0);
-        }.card img {
+        }
+
+        .card img {
             position: relative;
             width: 100%;
             height: auto;
@@ -280,43 +343,207 @@ ob_start();
             object-position: center;
             display: block;
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity var(--transition-speed) ease;
             z-index: 1;
-            /* Optimizar layout */
             will-change: opacity;
             transform: translateZ(0);
         }
+
         .card img.loaded {
             opacity: 1;
         }
+
+        .blur-on-load {
+            filter: blur(16px);
+            transition: filter 0.5s ease;
+            will-change: filter;
+            transform: translateZ(0);
+        }
+
+        .blur-on-load.high-quality-loaded {
+            filter: blur(0);
+        }
+
         .info {
             padding: 1rem;
-            /* Optimizar layout */
             contain: layout style;
         }
+
         .info h3 {
             margin: 0 0 0.5rem;
             font-size: 1.2rem;
             line-height: 1.4;
-            /* Optimizar layout */
             contain: layout style;
+            color: var(--text-color);
         }
+
         .info small {
             display: block;
             color: #666;
             font-size: 0.9rem;
-            /* Optimizar layout */
             contain: layout style;
         }
-        .blur-on-load {
-            filter: blur(16px);
-            transition: filter 0.5s ease;
-            /* Optimizar layout */
-            will-change: filter;
+
+        /* Optimización para elementos después de los primeros 6 */
+        .card:nth-child(n+7) {
+            content-visibility: auto;
+            contain-intrinsic-size: 0 500px;
+        }
+
+        /* Footer optimizado */
+        .footer-reload {
+            background: var(--primary-color);
+            padding: 1rem;
+            margin-top: 2rem;
+            border-top: 3px solid var(--accent-color);
+            contain: layout style;
+            will-change: transform;
             transform: translateZ(0);
         }
-        .blur-on-load.high-quality-loaded {
-            filter: blur(0);
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            contain: layout style;
+        }
+
+        .last-update-info {
+            flex: 1;
+            contain: layout style;
+        }
+
+        .last-update-info small {
+            color: #ccc;
+            font-size: 0.9rem;
+            contain: layout style;
+        }
+
+        .footer-reload-btn {
+            font-size: 1.2rem;
+            padding: 0.5rem 1rem;
+            background: #2c3e50;
+            border: 2px solid #34495e;
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            font-family: inherit;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            contain: layout style;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+
+        .footer-reload-btn:hover {
+            background: #1a252f;
+            border-color: #2c3e50;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .footer-reload-btn:focus {
+            outline: 3px solid #3498db;
+            outline-offset: 2px;
+        }
+
+        .footer-reload-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Modal optimizado */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            contain: layout style;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal img {
+            max-width: 90%;
+            max-height: 90vh;
+            object-fit: contain;
+            contain: layout style;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            contain: layout style;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .gallery {
+                padding: 1rem;
+                gap: 1rem;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .last-update-info {
+                order: 2;
+                margin-top: 0.5rem;
+            }
+            
+            .footer-reload-btn {
+                order: 1;
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .card {
+                min-height: auto;
+            }
+
+            .image-container {
+                min-height: 200px;
+            }
+        }
+
+        /* Optimizaciones de rendimiento */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
         }
     </style>
     <!-- Favicon básico -->
@@ -470,13 +697,23 @@ ob_start();
                 $original_url = isset($doc['original_url']) ? htmlspecialchars($doc['original_url']) : '';
                 $thumbnail_url = isset($doc['thumbnail_url']) ? htmlspecialchars($doc['thumbnail_url']) : '';
 
-                // Solo mostrar si hay imagen y título
-                if (empty($original_url) || empty($title)) continue;
-
+                // Determinar URLs de imagen y miniatura
+                $thumbnail_url = '';
+                $original_url = '';
+                
+                if ($source_type === 'meltwater' && $external_id) {
+                    $thumbnail_url = "images/melwater/previews/{$external_id}_preview.webp";
+                    $original_url = "images/melwater/{$external_id}_original.webp";
+                } elseif ($source_type === 'cover') {
+                    $thumbnail_url = isset($doc['thumbnail_url']) ? $doc['thumbnail_url'] : '';
+                    $original_url = isset($doc['original_url']) ? $doc['original_url'] : '';
+                }
+                
+                if (empty($thumbnail_url) || empty($title)) continue;
+                
                 static $image_count = 0;
                 $image_count++;
-                // La primera imagen siempre será eager y high priority
-                $loading_strategy = $first_image ? 'eager' : 'lazy';
+                $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
                 $is_video = (substr($original_url, -4) === '.mp4');
             ?>
                 <div class="card" 
@@ -502,15 +739,14 @@ ob_start();
                             <img loading="<?= $loading_strategy ?>" 
                                  src="<?= $thumbnail_url ?>?v=<?= ASSETS_VERSION ?>" 
                                  data-original="<?= $original_url ?>?v=<?= ASSETS_VERSION ?>"
-                                 <?php if ($first_image): ?>
+                                 <?php if ($image_count <= 6): ?>
                                  fetchpriority="high"
                                  decoding="sync"
-                                 importance="high"
                                  <?php endif; ?>
                                  alt="<?= $title ?>" 
-                                 class="progressive-image"
-                                 onload="this.parentElement.classList.add('loaded')"
-                                 onerror="this.parentElement.classList.add('loaded')">
+                                 class="progressive-image blur-on-load"
+                                 onload="this.classList.add('loaded'); this.classList.remove('blur-on-load');"
+                                 onerror="this.classList.add('loaded'); this.classList.remove('blur-on-load');">
                         <?php endif; ?>
                     </div>
                     <div class="info">
@@ -561,10 +797,16 @@ ob_start();
             navigator.serviceWorker.register('service-worker.js')
                 .then(reg => console.log('SW registrado:', reg.scope))
                 .catch(err => console.error('Error SW:', err));
-        }        // Optimización completa de imágenes y funcionalidad de la aplicación
+        }
+
+        // Optimización completa de imágenes y funcionalidad de la aplicación
         document.addEventListener('DOMContentLoaded', () => {
             // Performance monitoring
             const perfStart = performance.now();
+            
+            // Obtener el grupo inicial de la URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialGrupo = urlParams.get('grupo') || '';
             
             // Batch DOM updates
             const updateQueue = [];
@@ -582,7 +824,7 @@ ob_start();
                 }
             }
 
-            // Función para cargar imágenes progresivamente
+            // Cargar imágenes progresivamente
             function loadProgressiveImages() {
                 const images = document.querySelectorAll('.progressive-image');
                 images.forEach(img => {
@@ -612,11 +854,10 @@ ob_start();
 
             // Cargar imágenes progresivamente después de que la página esté lista
             window.addEventListener('load', () => {
-                // Esperar a que las imágenes críticas estén cargadas
                 setTimeout(loadProgressiveImages, 100);
             });
 
-            // También cargar imágenes progresivamente cuando sean visibles
+            // Cargar imágenes progresivamente cuando sean visibles
             if ('IntersectionObserver' in window) {
                 const imageObserver = new IntersectionObserver((entries) => {
                     entries.forEach(entry => {
@@ -685,9 +926,16 @@ ob_start();
             }
 
             // Event listeners optimizados
+            const grupoSelect = document.getElementById('grupoSelect');
+            const gallery = document.getElementById('gallery');
+            const modalImage = document.getElementById('modalImage');
+            const modalLoader = document.getElementById('modalLoader');
+            const imageModal = document.getElementById('imageModal');
+
             grupoSelect.addEventListener('change', filterCards);
             
             if (initialGrupo) {
+                grupoSelect.value = initialGrupo;
                 filterCards();
             }
 
@@ -741,20 +989,77 @@ ob_start();
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('img.progressive-image').forEach(function(img) {
-                const finalSrc = img.getAttribute('data-final-src');
-                if (finalSrc && finalSrc !== img.src) {
-                    const highResImg = new Image();
-                    highResImg.onload = function() {
-                        img.src = finalSrc;
-                        img.classList.add('high-quality-loaded');
-                        img.classList.remove('progressive-blur');
-                    };
-                    highResImg.src = finalSrc;
+            // Función para manejar la carga de imágenes
+            function handleImageLoad(img) {
+                img.classList.add('loaded');
+                const container = img.closest('.image-container');
+                if (container) {
+                    container.classList.add('loaded');
+                }
+            }
+
+            // Función para verificar si todas las imágenes están cargadas
+            function checkAllImagesLoaded() {
+                const images = document.querySelectorAll('.card img');
+                const allLoaded = Array.from(images).every(img => img.complete);
+                
+                if (allLoaded) {
+                    document.querySelectorAll('.image-container').forEach(container => {
+                        container.classList.add('loading-complete');
+                    });
+                }
+            }
+
+            // Manejar imágenes existentes
+            document.querySelectorAll('.card img').forEach(img => {
+                if (img.complete) {
+                    handleImageLoad(img);
                 } else {
-                    img.classList.remove('progressive-blur');
+                    img.addEventListener('load', function() {
+                        handleImageLoad(this);
+                        checkAllImagesLoaded();
+                    });
                 }
             });
+
+            // Verificar estado inicial
+            checkAllImagesLoaded();
+
+            // Manejar carga progresiva de imágenes
+            if ('IntersectionObserver' in window) {
+                const imageObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            if (img.dataset.original) {
+                                const highResImg = new Image();
+                                highResImg.onload = function() {
+                                    img.src = img.dataset.original;
+                                    img.classList.add('high-quality-loaded');
+                                    handleImageLoad(img);
+                                    checkAllImagesLoaded();
+                                };
+                                highResImg.src = img.dataset.original;
+                            }
+                            imageObserver.unobserve(img);
+                        }
+                    });
+                }, {
+                    rootMargin: '50px 0px',
+                    threshold: 0.1
+                });
+
+                document.querySelectorAll('.progressive-image').forEach(img => {
+                    imageObserver.observe(img);
+                });
+            }
+
+            // Asegurar que el efecto de carga se quite después de un tiempo máximo
+            setTimeout(() => {
+                document.querySelectorAll('.image-container').forEach(container => {
+                    container.classList.add('loading-complete');
+                });
+            }, 5000); // 5 segundos como máximo
         });
     </script>
 </body>
