@@ -136,9 +136,13 @@ try {
     $pdo->exec("SET NAMES utf8mb4");
     logMessage("Charset establecido a utf8mb4");
 
-    // 1. Borrar todos los registros de portadas
-    $pdo->exec("TRUNCATE portadas");
-    logMessage("Tabla portadas vaciada");
+    // Crear tabla temporal para nuevos datos
+    $pdo->exec("CREATE TEMPORARY TABLE temp_portadas LIKE portadas");
+    logMessage("Tabla temporal creada");
+
+    // Verificar si existen las columnas de timestamp
+    $stmt = $pdo->query("SHOW COLUMNS FROM portadas LIKE 'created_at'");
+    $has_timestamps = $stmt->rowCount() > 0;
 
     $total_inserted = 0;
     $melwater_titles_dereach = [];
@@ -182,7 +186,31 @@ try {
             continue;
         }
         
-        $insert = $pdo->prepare("INSERT INTO portadas (title, grupo, pais, published_date, dereach, source_type, external_id, visualizar, original_url, thumbnail_url, indexed_date) VALUES (:title, :grupo, :pais, :published_date, :dereach, 'meltwater', :external_id, :visualizar, :original_url, :thumbnail_url, NOW())");
+        // Preparar la consulta SQL según si existen las columnas de timestamp
+        if ($has_timestamps) {
+            $insert = $pdo->prepare("INSERT INTO temp_portadas (
+                title, grupo, pais, published_date, dereach, 
+                source_type, external_id, visualizar, 
+                original_url, thumbnail_url, 
+                created_at, updated_at
+            ) VALUES (
+                :title, :grupo, :pais, :published_date, :dereach, 
+                'meltwater', :external_id, :visualizar, 
+                :original_url, :thumbnail_url,
+                NOW(), NOW()
+            )");
+        } else {
+            $insert = $pdo->prepare("INSERT INTO temp_portadas (
+                title, grupo, pais, published_date, dereach, 
+                source_type, external_id, visualizar, 
+                original_url, thumbnail_url
+            ) VALUES (
+                :title, :grupo, :pais, :published_date, :dereach, 
+                'meltwater', :external_id, :visualizar, 
+                :original_url, :thumbnail_url
+            )");
+        }
+        
         $insert->execute([
             'title' => mb_substr($row['medio_title'], 0, 255),
             'grupo' => $row['grupo'],
@@ -194,13 +222,14 @@ try {
             'original_url' => $original_url,
             'thumbnail_url' => $thumbnail_url
         ]);
+        
         $melwater_titles_dereach[mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach']] = true;
         $inserted_keys[$key] = true;
         $total_inserted++;
     }
     logMessage("Insertados desde Meltwater: " . count($melwater_rows));
 
-    // 3. Insertar desde covers (solo si no existe ya title+dereach en portadas de Meltwater y tipo)
+    // 3. Insertar desde covers
     $sql = "
         SELECT 
             c.id,
@@ -225,7 +254,19 @@ try {
         $key = mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach'] . '|cover';
         if (isset($melwater_titles_dereach[mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach']])) continue;
         if (isset($inserted_keys[$key])) continue;
-        $insert = $pdo->prepare("INSERT INTO portadas (title, grupo, pais, published_date, dereach, source_type, external_id, visualizar, original_url, thumbnail_url, indexed_date) VALUES (:title, :grupo, :pais, :published_date, :dereach, 'cover', :external_id, :visualizar, :original_url, :thumbnail_url, NOW())");
+        
+        $insert = $pdo->prepare("INSERT INTO temp_portadas (
+            title, grupo, pais, published_date, dereach, 
+            source_type, external_id, visualizar, 
+            original_url, thumbnail_url,
+            created_at, updated_at
+        ) VALUES (
+            :title, :grupo, :pais, :published_date, :dereach, 
+            'cover', :external_id, :visualizar, 
+            :original_url, :thumbnail_url,
+            NOW(), NOW()
+        )");
+        
         $insert->execute([
             'title' => mb_substr($row['medio_title'], 0, 255),
             'grupo' => $row['grupo'],
@@ -237,12 +278,13 @@ try {
             'original_url' => $row['original_url'],
             'thumbnail_url' => $row['thumbnail_url']
         ]);
+        
         $inserted_keys[$key] = true;
         $total_inserted++;
     }
     logMessage("Insertados desde Covers: " . count($cover_rows));
 
-    // 4. Insertar desde resumen (solo si no existe ya title+dereach en portadas de Meltwater y tipo)
+    // 4. Insertar desde resumen
     $sql = "
         SELECT 
             r.id,
@@ -266,7 +308,19 @@ try {
         $key = mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach'] . '|resumen';
         if (isset($melwater_titles_dereach[mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach']])) continue;
         if (isset($inserted_keys[$key])) continue;
-        $insert = $pdo->prepare("INSERT INTO portadas (title, grupo, pais, published_date, dereach, source_type, external_id, visualizar, original_url, thumbnail_url, indexed_date) VALUES (:title, :grupo, :pais, :published_date, :dereach, 'resumen', :external_id, :visualizar, :original_url, NULL, NOW())");
+        
+        $insert = $pdo->prepare("INSERT INTO temp_portadas (
+            title, grupo, pais, published_date, dereach, 
+            source_type, external_id, visualizar, 
+            original_url, thumbnail_url,
+            created_at, updated_at
+        ) VALUES (
+            :title, :grupo, :pais, :published_date, :dereach, 
+            'resumen', :external_id, :visualizar, 
+            :original_url, NULL,
+            NOW(), NOW()
+        )");
+        
         $insert->execute([
             'title' => mb_substr($row['medio_title'], 0, 255),
             'grupo' => $row['grupo'],
@@ -277,19 +331,51 @@ try {
             'visualizar' => $row['visualizar'],
             'original_url' => $row['original_url']
         ]);
+        
         $inserted_keys[$key] = true;
         $total_inserted++;
     }
     logMessage("Insertados desde Resumen: " . count($resumen_rows));
 
-    logMessage("Total insertados en portadas: $total_inserted");
+    // Actualizar la tabla portadas con los nuevos datos
+    if ($has_timestamps) {
+        $pdo->exec("
+            INSERT INTO portadas 
+            SELECT * FROM temp_portadas 
+            ON DUPLICATE KEY UPDATE
+                title = VALUES(title),
+                grupo = VALUES(grupo),
+                pais = VALUES(pais),
+                published_date = VALUES(published_date),
+                dereach = VALUES(dereach),
+                visualizar = VALUES(visualizar),
+                original_url = VALUES(original_url),
+                thumbnail_url = VALUES(thumbnail_url),
+                updated_at = NOW()
+        ");
+    } else {
+        $pdo->exec("
+            INSERT INTO portadas 
+            SELECT * FROM temp_portadas 
+            ON DUPLICATE KEY UPDATE
+                title = VALUES(title),
+                grupo = VALUES(grupo),
+                pais = VALUES(pais),
+                published_date = VALUES(published_date),
+                dereach = VALUES(dereach),
+                visualizar = VALUES(visualizar),
+                original_url = VALUES(original_url),
+                thumbnail_url = VALUES(thumbnail_url)
+        ");
+    }
 
-    // Truncar las tablas de origen después de procesar todo
-    $pdo->exec("TRUNCATE covers");
-    logMessage("Tabla covers vaciada");
-    
-    $pdo->exec("TRUNCATE pk_melwater");
-    logMessage("Tabla pk_melwater vaciada");
+    // Limpiar datos antiguos (opcional)
+    $pdo->exec("
+        DELETE FROM portadas 
+        WHERE published_date < DATE_SUB(NOW(), INTERVAL 7 DAY)
+    ");
+
+    logMessage("Total insertados en portadas: $total_inserted");
 
     // Limpiar solo archivos temporales en el directorio de Meltwater
     $melwater_dir = __DIR__ . '/images/melwater';

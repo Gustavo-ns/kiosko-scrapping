@@ -18,6 +18,20 @@ function getContentHash($pdo) {
     return md5($result['last_update'] . time() . ASSETS_VERSION); // Incluir timestamp actual
 }
 
+// Función para obtener dimensiones de imagen
+function getImageDimensions($imagePath) {
+    if (file_exists($imagePath)) {
+        $dimensions = getimagesize($imagePath);
+        if ($dimensions) {
+            return [
+                'width' => $dimensions[0],
+                'height' => $dimensions[1]
+            ];
+        }
+    }
+    return ['width' => 300, 'height' => 200]; // Dimensiones por defecto
+}
+
 try {
     $pdo = new PDO(
         "mysql:host={$cfg['db']['host']};dbname={$cfg['db']['name']};charset={$cfg['db']['charset']}",
@@ -715,6 +729,10 @@ ob_start();
                 $image_count++;
                 $loading_strategy = $image_count <= 6 ? 'eager' : 'lazy';
                 $is_video = (substr($original_url, -4) === '.mp4');
+
+                // Obtener dimensiones de la imagen
+                $thumbnail_path = __DIR__ . "/" . $thumbnail_url;
+                $dimensions = getImageDimensions($thumbnail_path);
             ?>
                 <div class="card" 
                      data-id="<?= $external_id ?>"
@@ -735,10 +753,13 @@ ob_start();
                                 style="width:100%;height:auto;max-height:350px;object-fit:contain;background:#000;">
                                 Tu navegador no soporta video.
                             </video>
-                        <?php else: ?>
+                        <?php else: ?>                            
+                            <!--original_url-->
                             <img loading="<?= $loading_strategy ?>" 
                                  src="<?= $thumbnail_url ?>?v=<?= ASSETS_VERSION ?>" 
                                  data-original="<?= $original_url ?>?v=<?= ASSETS_VERSION ?>"
+                                 width="<?= $dimensions['width'] ?>"
+                                 height="<?= $dimensions['height'] ?>"
                                  <?php if ($image_count <= 6): ?>
                                  fetchpriority="high"
                                  decoding="sync"
@@ -998,15 +1019,17 @@ ob_start();
                 }
             }
 
-            // Función para verificar si todas las imágenes están cargadas
-            function checkAllImagesLoaded() {
-                const images = document.querySelectorAll('.card img');
-                const allLoaded = Array.from(images).every(img => img.complete);
-                
-                if (allLoaded) {
-                    document.querySelectorAll('.image-container').forEach(container => {
-                        container.classList.add('loading-complete');
-                    });
+            // Función para cambiar a imagen de alta resolución
+            function loadHighResImage(img) {
+                const originalSrc = img.dataset.original;
+                if (originalSrc && originalSrc !== img.src) {
+                    const highResImg = new Image();
+                    highResImg.onload = function() {
+                        img.src = originalSrc;
+                        img.classList.add('high-quality-loaded');
+                        handleImageLoad(img);
+                    };
+                    highResImg.src = originalSrc;
                 }
             }
 
@@ -1017,49 +1040,43 @@ ob_start();
                 } else {
                     img.addEventListener('load', function() {
                         handleImageLoad(this);
-                        checkAllImagesLoaded();
                     });
                 }
             });
 
-            // Verificar estado inicial
-            checkAllImagesLoaded();
+            // Esperar a que todo el sitio esté cargado antes de cargar las imágenes originales
+            window.addEventListener('load', function() {
+                // Pequeño retraso para asegurar que todo esté listo
+                setTimeout(() => {
+                    // Implementación del IntersectionObserver para lazy loading
+                    if ('IntersectionObserver' in window) {
+                        const imageObserver = new IntersectionObserver((entries) => {
+                            entries.forEach(entry => {
+                                if (entry.isIntersecting) {
+                                    const img = entry.target;
+                                    loadHighResImage(img);
+                                    imageObserver.unobserve(img);
+                                }
+                            });
+                        }, {
+                            rootMargin: '50px 0px',
+                            threshold: 0.1
+                        });
 
-            // Manejar carga progresiva de imágenes
-            if ('IntersectionObserver' in window) {
-                const imageObserver = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const img = entry.target;
-                            if (img.dataset.original) {
-                                const highResImg = new Image();
-                                highResImg.onload = function() {
-                                    img.src = img.dataset.original;
-                                    img.classList.add('high-quality-loaded');
-                                    handleImageLoad(img);
-                                    checkAllImagesLoaded();
-                                };
-                                highResImg.src = img.dataset.original;
-                            }
-                            imageObserver.unobserve(img);
-                        }
-                    });
-                }, {
-                    rootMargin: '50px 0px',
-                    threshold: 0.1
-                });
-
-                document.querySelectorAll('.progressive-image').forEach(img => {
-                    imageObserver.observe(img);
-                });
-            }
+                        // Observar todas las imágenes
+                        document.querySelectorAll('.card img').forEach(img => {
+                            imageObserver.observe(img);
+                        });
+                    }
+                }, 500); // 500ms de retraso para asegurar que todo esté listo
+            });
 
             // Asegurar que el efecto de carga se quite después de un tiempo máximo
             setTimeout(() => {
                 document.querySelectorAll('.image-container').forEach(container => {
-                    container.classList.add('loading-complete');
+                    container.classList.add('loaded');
                 });
-            }, 5000); // 5 segundos como máximo
+            }, 3000);
         });
     </script>
 </body>

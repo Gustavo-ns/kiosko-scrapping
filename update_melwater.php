@@ -23,31 +23,31 @@ try {
     $apiUrl = "https://api.meltwater.com/v3/exports/recurring";
     $apiKey = "8PMcUPYZ1M954yDpIh6mI8CE61fqwG2LFulSbPGo";
 
-    // Inicializar cURL
-    $ch = curl_init($apiUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "apikey: $apiKey"
-    ]);
+    // URLs específicas para cada horario
+    $scheduledUrls = [
+        '6:30' => 'https://downloads.exports.meltwater.com/v3/recurring/13742063?data_key=3f4aed98-80fe-3fb1-9cf0-ce4681a26d7c',
+        '7:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13820798?data_key=99180c35-19a8-3b35-8ae7-368a020d3f60',
+        '8:30' => 'https://downloads.exports.meltwater.com/v3/recurring/13841083?data_key=1590e1c0-0060-3ce6-af3b-431a90b5e3e4',
+        '9:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13869250?data_key=262188f9-da14-3148-b734-e071ee3d9f7e',
+        '10:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13869241?data_key=7481954f-4c7c-34c4-89e8-59b79b063ae7'
+    ];
 
-    // Ejecutar la solicitud
-    $response = curl_exec($ch);
-
-    if (curl_errno($ch)) {
-        throw new Exception("Error de cURL: " . curl_error($ch));
-    }
-
-    curl_close($ch);
-
-    // Decodificar JSON inicial
-    $data = json_decode($response, true);
-    if (!isset($data['recurring_exports'][0]['data_url'])) {
-        throw new Exception("No se encontró 'data_url'.");
-    }
-
-    // Obtener la URL de los datos
-    $dataUrl = $data['recurring_exports'][0]['data_url'];
+    // Obtener la hora actual
+    $currentHour = date('H:i');
     
+    // Determinar qué URL usar basado en la hora actual
+    $dataUrl = null;
+    foreach ($scheduledUrls as $time => $url) {
+        if ($currentHour >= $time) {
+            $dataUrl = $url;
+        }
+    }
+
+    // Si no se encontró una URL para la hora actual, usar la última URL
+    if (!$dataUrl) {
+        $dataUrl = end($scheduledUrls);
+    }
+
     // Obtener los datos del JSON
     $response = file_get_contents($dataUrl);
     if ($response === FALSE) {
@@ -223,6 +223,22 @@ try {
         'success' => true,
         'message' => "Se actualizaron {$updatedCount} registros correctamente."
     ]);
+
+    // Llamar a process_portadas.php para actualizar la tabla portadas
+    try {
+        $process_portadas_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/process_portadas.php";
+        $response = file_get_contents($process_portadas_url);
+        if ($response === FALSE) {
+            throw new Exception("Error al llamar a process_portadas.php");
+        }
+        $result = json_decode($response, true);
+        if (!$result['success']) {
+            throw new Exception("Error en process_portadas.php: " . $result['message']);
+        }
+        error_log("Tabla portadas actualizada correctamente a través de process_portadas.php");
+    } catch (Exception $e) {
+        error_log("Error al actualizar tabla portadas: " . $e->getMessage());
+    }
 
 } catch (Exception $e) {
     echo json_encode([

@@ -95,60 +95,19 @@ function getPDO() {
     static $pdo = null;
     
     if ($pdo === null) {
-        if (!isset($config) || !is_array($config)) {
-            error_log("Error crítico: La configuración no está disponible");
-            die("Error crítico: La configuración no está disponible\n");
-        }
-
-        if (!isset($config['db']) || !is_array($config['db'])) {
-            error_log("Error crítico: La configuración de base de datos no es válida");
-            die("Error crítico: La configuración de base de datos no es válida\n");
-        }
-
-        $required = ['host', 'name', 'user', 'pass'];
-        foreach ($required as $field) {
-            if (empty($config['db'][$field])) {
-                error_log("Error crítico: Falta el campo '$field' en la configuración de la base de datos");
-                die("Error crítico: Falta el campo '$field' en la configuración de la base de datos\n");
-            }
-        }
-
         try {
-            $dsn = "mysql:host={$config['db']['host']};dbname={$config['db']['name']}";
-            error_log("Intentando conectar a la base de datos: $dsn");
-            
-            // Try connecting without charset first
-            try {
-                $pdo = new PDO($dsn, $config['db']['user'], $config['db']['pass'], [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                ]);
-            } catch (PDOException $e) {
-                if (strpos($e->getMessage(), 'Unknown character set') !== false) {
-                    // If charset fails, try with utf8mb4
-                    $dsn .= ";charset=utf8mb4";
-                    error_log("Reintentando conexión con charset utf8mb4: $dsn");
-                    $pdo = new PDO($dsn, $config['db']['user'], $config['db']['pass'], [
-                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                        PDO::ATTR_EMULATE_PREPARES => false,
-                    ]);
-                } else {
-                    throw $e;
-                }
-            }
-            
-            // Set charset after connection if needed
+            $dsn = "mysql:host={$config['db']['host']};dbname={$config['db']['name']};charset=utf8mb4";
+            $pdo = new PDO($dsn, $config['db']['user'], $config['db']['pass'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]);
             $pdo->exec("SET NAMES utf8mb4");
-            error_log("Database connection established successfully");
         } catch (PDOException $e) {
             error_log("Error de conexión a la base de datos: " . $e->getMessage());
-            error_log("DSN utilizado: $dsn");
-            die("Error de conexión a la base de datos: " . $e->getMessage() . "\n");
+            throw $e;
         }
     }
-    
     return $pdo;
 }
 
@@ -306,47 +265,55 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
         $urlImg = cleanImageUrl($urlImg);
         error_log("URL de imagen limpia: " . $urlImg);
         
+        // Verificar si ya existe la imagen
         $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
         $stmt->execute([':c' => $country, ':u' => $urlImg]);
         if (!$stmt->fetchColumn()) {
             $imageResult = saveImageLocally($urlImg, $country, $alt);
             if ($imageResult) {
-                // Si es un array (nueva estructura), usar las diferentes versiones
-                if (is_array($imageResult)) {
-                    $preview_path = isset($imageResult['preview']) ? $imageResult['preview'] : null;
-                    $thumbnail_path = $imageResult['thumbnail'];
-                    $original_path = $imageResult['original'];
-                } else {
-                    // Compatibilidad con estructura antigua
-                    $preview_path = null;
-                    $thumbnail_path = $imageResult;
-                    $original_path = $imageResult;
-                }
                 try {
-                    $ins = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,preview_url,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:pr,:th,:or)");
+                    $ins = $pdo->prepare("INSERT INTO covers(
+                        country, title, image_url, source, original_link, 
+                        preview_url, thumbnail_url, original_url, 
+                        created_at, updated_at
+                    ) VALUES(
+                        :c, :t, :i, :s, :l, 
+                        :pr, :th, :or,
+                        NOW(), NOW()
+                    )");
+                    
                     $ins->execute([
                         ':c' => $country, 
                         ':t' => $alt, 
-                        ':i' => $thumbnail_path,
+                        ':i' => $imageResult['thumbnail'],
                         ':s' => $sourceLink, 
                         ':l' => $urlImg,
-                        ':pr' => $preview_path,
-                        ':th' => $thumbnail_path,
-                        ':or' => $original_path
+                        ':pr' => $imageResult['preview'],
+                        ':th' => $imageResult['thumbnail'],
+                        ':or' => $imageResult['original']
                     ]);
+                    
+                    return true;
                 } catch (PDOException $e) {
-                    // If preview_url column doesn't exist, fallback to old structure
-                    if (strpos($e->getMessage(), 'preview_url') !== false) {
-                        error_log("Fallback: usando estructura antigua sin preview_url para $sourceLink");
-                        $ins_fallback = $pdo->prepare("INSERT INTO covers(country,title,image_url,source,original_link,thumbnail_url,original_url) VALUES(:c,:t,:i,:s,:l,:th,:or)");
+                    // Si la tabla no tiene las columnas de timestamp, usar estructura antigua
+                    if (strpos($e->getMessage(), 'created_at') !== false) {
+                        error_log("Fallback: usando estructura antigua sin timestamps para $sourceLink");
+                        $ins_fallback = $pdo->prepare("INSERT INTO covers(
+                            country, title, image_url, source, original_link, 
+                            thumbnail_url, original_url
+                        ) VALUES(
+                            :c, :t, :i, :s, :l, 
+                            :th, :or
+                        )");
+                        
                         $ins_fallback->execute([
                             ':c' => $country, 
                             ':t' => $alt, 
-                            ':i' => $thumbnail_path,
+                            ':i' => $imageResult['thumbnail'],
                             ':s' => $sourceLink, 
                             ':l' => $urlImg,
-                            ':th' => $thumbnail_path,
-                            ':or' => $original_path
+                            ':th' => $imageResult['thumbnail'],
+                            ':or' => $imageResult['original']
                         ]);
                     } else {
                         throw $e;
@@ -569,32 +536,6 @@ foreach ($config['sites'] as $country => $configs) {
 
 $end = microtime(true);
 echo "\nScraping finalizado a las " . date('H:i:s') . ". Duración: " . round($end - $start, 2) . "s\n";
-
-// Limpiar directorios y tabla al finalizar
-if ($lastScrapeDate !== $hoy) {
-    echo "Limpiando imágenes y reiniciando base de datos...\n";
-
-    // Limpiar directorios de imágenes organizados
-    $imageDirs = [
-        __DIR__ . '/images/',
-        __DIR__ . '/images/covers/',
-        __DIR__ . '/images/covers/thumbnails/',
-    ];
-    
-    foreach ($imageDirs as $imagesDir) {
-        if (is_dir($imagesDir)) {
-            $files = glob($imagesDir . '*');
-            foreach ($files as $file) {
-                if (is_file($file)) unlink($file);
-            }
-        } else {
-            mkdir($imagesDir, 0777, true);
-        }
-    }
-
-    $pdo->exec('TRUNCATE TABLE covers');
-    echo "Limpieza completada.\n";
-}
 
 // Procesar portadas después del scraping
 if (file_exists(__DIR__ . '/process_portadas.php')) {
