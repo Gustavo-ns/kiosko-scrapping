@@ -163,6 +163,7 @@ function checkImageMagickSupport() {
 
 function saveImageLocally($imageUrl, $country, $alt) {
     $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid();
+    error_log("Iniciando guardado de imagen - URL: $imageUrl, País: $country, Alt: $alt");
     
     // Crear estructura de directorios como Meltwater
     $upload_dir = __DIR__ . '/images/covers';
@@ -170,24 +171,33 @@ function saveImageLocally($imageUrl, $country, $alt) {
     $preview_dir = $upload_dir . '/previews';
     foreach ([$upload_dir, $thumb_dir, $preview_dir] as $dir) {
         if (!file_exists($dir)) {
-            mkdir($dir, 0755, true);
+            if (!mkdir($dir, 0755, true)) {
+                error_log("Error al crear directorio: $dir");
+                return false;
+            }
         }
     }
 
     // Usar Guzzle para la descarga con timeout y manejo de errores
     global $guzzle;
     try {
+        error_log("Descargando imagen de: $imageUrl");
         $response = $guzzle->get($imageUrl);
         $imageData = $response->getBody()->getContents();
+        error_log("Imagen descargada exitosamente - Tamaño: " . strlen($imageData) . " bytes");
     } catch (Exception $e) {
-        error_log("No se pudo descargar la imagen: $imageUrl - " . $e->getMessage());
+        error_log("Error al descargar la imagen: $imageUrl - " . $e->getMessage());
         return false;
     }
 
     $tempFile = tempnam(sys_get_temp_dir(), 'img_');
-    file_put_contents($tempFile, $imageData);
+    if (!file_put_contents($tempFile, $imageData)) {
+        error_log("Error al guardar archivo temporal: $tempFile");
+        return false;
+    }
 
-    try {        // Definir rutas de archivos
+    try {
+        // Definir rutas de archivos
         $original_filename = $filename . '_original.webp';
         $thumb_filename = $filename . '_thumb.webp';
         $preview_filename = $filename . '_preview.webp';
@@ -195,54 +205,56 @@ function saveImageLocally($imageUrl, $country, $alt) {
         $thumb_filepath = $thumb_dir . '/' . $thumb_filename;
         $preview_filepath = $preview_dir . '/' . $preview_filename;
 
+        error_log("Rutas de archivos definidas:");
+        error_log("- Original: $original_filepath");
+        error_log("- Thumbnail: $thumb_filepath");
+        error_log("- Preview: $preview_filepath");
+
         // Si ya existen todos los archivos, devolverlos
         if (file_exists($original_filepath) && file_exists($thumb_filepath) && file_exists($preview_filepath)) {
+            error_log("Archivos ya existen, retornando rutas existentes");
             unlink($tempFile);
             return [
                 'preview' => 'images/covers/previews/' . $preview_filename,
                 'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
                 'original' => 'images/covers/' . $original_filename
             ];
-        }        // Convertir a WebP y crear versión original
-        if (convertToWebP($tempFile, $original_filepath, 90)) {            // Crear miniatura con dimensiones estándar (igual que Meltwater)
-            if (convertToWebP($tempFile, $thumb_filepath, 80, 400, 600)) {
-                // Crear preview de muy baja calidad para carga rápida inicial (320px ancho)
-                if (convertToWebP($tempFile, $preview_filepath, 40, 320, 480)) {
-                    unlink($tempFile);
-                    error_log("Imagen procesada exitosamente: $original_filename, $thumb_filename y $preview_filename creados");
-                    return [
-                        'preview' => 'images/covers/previews/' . $preview_filename,
-                        'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
-                        'original' => 'images/covers/' . $original_filename
-                    ];
-                }
-            }
         }
-        
-        // Fallback: usar el procesador optimizado si WebP falla
-        $result = processOptimizedImage($tempFile, $upload_dir, [
-            'max_width' => 400,  // Actualizado para coincidir con las dimensiones de Meltwater
-            'max_height' => 600, // Actualizado para coincidir con las dimensiones de Meltwater
-            'quality' => 85,
-            'prefer_webp' => true,
-            'strip_metadata' => true
-        ]);
-        
-        unlink($tempFile);
-        
-        if ($result['success']) {
-            error_log("Imagen procesada con fallback: " . basename($result['output_path']));
-            return [
-                'thumbnail' => 'images/covers/' . basename($result['output_path']),
-                'original' => 'images/covers/' . basename($result['output_path'])
-            ];
-        } else {
-            error_log("Error procesando imagen: $imageUrl - " . $result['error']);
+
+        // Convertir a WebP y crear versión original
+        error_log("Convirtiendo a WebP - Original");
+        if (!convertToWebP($tempFile, $original_filepath, 90)) {
+            error_log("Error al convertir imagen original a WebP");
+            unlink($tempFile);
             return false;
         }
+
+        // Crear miniatura
+        error_log("Convirtiendo a WebP - Thumbnail");
+        if (!convertToWebP($tempFile, $thumb_filepath, 80, 400, 600)) {
+            error_log("Error al convertir thumbnail a WebP");
+            unlink($tempFile);
+            return false;
+        }
+
+        // Crear preview
+        error_log("Convirtiendo a WebP - Preview");
+        if (!convertToWebP($tempFile, $preview_filepath, 40, 320, 480)) {
+            error_log("Error al convertir preview a WebP");
+            unlink($tempFile);
+            return false;
+        }
+
+        unlink($tempFile);
+        error_log("Imagen procesada exitosamente");
         
+        return [
+            'preview' => 'images/covers/previews/' . $preview_filename,
+            'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
+            'original' => 'images/covers/' . $original_filename
+        ];
     } catch (Exception $e) {
-        error_log("Error procesando la imagen: $imageUrl - " . $e->getMessage());
+        error_log("Error procesando la imagen: " . $e->getMessage());
         if (file_exists($tempFile)) unlink($tempFile);
         return false;
     }
@@ -263,62 +275,78 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
         
         // Limpiar la URL de la imagen antes de procesarla
         $urlImg = cleanImageUrl($urlImg);
-        error_log("URL de imagen limpia: " . $urlImg);
+        error_log("Procesando cover - País: $country, URL: $urlImg, Fuente: $sourceLink");
         
         // Verificar si ya existe la imagen
         $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
         $stmt->execute([':c' => $country, ':u' => $urlImg]);
-        if (!$stmt->fetchColumn()) {
-            $imageResult = saveImageLocally($urlImg, $country, $alt);
-            if ($imageResult) {
-                try {
-                    $ins = $pdo->prepare("INSERT INTO covers(
-                        country, title, image_url, source, original_link, 
-                        preview_url, thumbnail_url, original_url, 
-                        created_at, updated_at
-                    ) VALUES(
-                        :c, :t, :i, :s, :l, 
-                        :pr, :th, :or,
-                        NOW(), NOW()
-                    )");
-                    
-                    $ins->execute([
-                        ':c' => $country, 
-                        ':t' => $alt, 
-                        ':i' => $imageResult['thumbnail'],
-                        ':s' => $sourceLink, 
-                        ':l' => $urlImg,
-                        ':pr' => $imageResult['preview'],
-                        ':th' => $imageResult['thumbnail'],
-                        ':or' => $imageResult['original']
-                    ]);
-                    
-                    return true;
-                } catch (PDOException $e) {
-                    // Si la tabla no tiene las columnas de timestamp, usar estructura antigua
-                    if (strpos($e->getMessage(), 'created_at') !== false) {
-                        error_log("Fallback: usando estructura antigua sin timestamps para $sourceLink");
-                        $ins_fallback = $pdo->prepare("INSERT INTO covers(
-                            country, title, image_url, source, original_link, 
-                            thumbnail_url, original_url
-                        ) VALUES(
-                            :c, :t, :i, :s, :l, 
-                            :th, :or
-                        )");
-                        
-                        $ins_fallback->execute([
-                            ':c' => $country, 
-                            ':t' => $alt, 
-                            ':i' => $imageResult['thumbnail'],
-                            ':s' => $sourceLink, 
-                            ':l' => $urlImg,
-                            ':th' => $imageResult['thumbnail'],
-                            ':or' => $imageResult['original']
-                        ]);
-                    } else {
-                        throw $e;
-                    }
-                }
+        if ($stmt->fetchColumn()) {
+            error_log("Cover ya existe para $country y $urlImg");
+            return true;
+        }
+
+        $imageResult = saveImageLocally($urlImg, $country, $alt);
+        if (!$imageResult) {
+            error_log("Error al guardar imagen localmente para $urlImg");
+            return false;
+        }
+
+        error_log("Imagen guardada exitosamente: " . print_r($imageResult, true));
+
+        try {
+            $ins = $pdo->prepare("INSERT INTO covers(
+                country, title, image_url, source, original_link, 
+                preview_url, thumbnail_url, original_url, 
+                created_at, updated_at, scraped_at
+            ) VALUES(
+                :c, :t, :i, :s, :l, 
+                :pr, :th, :or,
+                NOW(), NOW(), NOW()
+            )");
+            
+            $params = [
+                ':c' => $country, 
+                ':t' => $alt, 
+                ':i' => $imageResult['thumbnail'],
+                ':s' => $sourceLink, 
+                ':l' => $urlImg,
+                ':pr' => $imageResult['preview'],
+                ':th' => $imageResult['thumbnail'],
+                ':or' => $imageResult['original']
+            ];
+            
+            error_log("Intentando insertar cover con parámetros: " . print_r($params, true));
+            
+            $ins->execute($params);
+            error_log("Cover insertado exitosamente");
+            return true;
+            
+        } catch (PDOException $e) {
+            // Si la tabla no tiene las columnas de timestamp, usar estructura antigua
+            if (strpos($e->getMessage(), 'created_at') !== false) {
+                error_log("Fallback: usando estructura antigua sin timestamps para $sourceLink");
+                $ins_fallback = $pdo->prepare("INSERT INTO covers(
+                    country, title, image_url, source, original_link, 
+                    thumbnail_url, original_url, scraped_at
+                ) VALUES(
+                    :c, :t, :i, :s, :l, 
+                    :th, :or, NOW()
+                )");
+                
+                $ins_fallback->execute([
+                    ':c' => $country, 
+                    ':t' => $alt, 
+                    ':i' => $imageResult['thumbnail'],
+                    ':s' => $sourceLink, 
+                    ':l' => $urlImg,
+                    ':th' => $imageResult['thumbnail'],
+                    ':or' => $imageResult['original']
+                ]);
+                error_log("Cover insertado exitosamente con estructura antigua");
+                return true;
+            } else {
+                error_log("Error al insertar cover: " . $e->getMessage());
+                throw $e;
             }
         }
     } catch (Exception $e) {
