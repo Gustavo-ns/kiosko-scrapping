@@ -180,51 +180,14 @@ ob_start();
         }
     </script>
     
-    <title>Portadas de Periódicos</title>
-      <?php    
-    // Preload de las primeras imágenes críticas para mejor LCP
-    // Debug: Verificar si $filtered_documents está definido
-    if (!isset($filtered_documents)) {
-        $filtered_documents = [];
-    }
+    <!-- Preload de fuentes críticas -->
+    <link rel="preload" href="https://fonts.gstatic.com/s/bebasneue/v14/JTUSjIg69CK48gW7PXoo9Wlhyw.woff2" as="font" type="font/woff2" crossorigin>
     
-    $critical_images = array_slice($filtered_documents, 0, 6);
-    foreach ($critical_images as $doc) {
-        $source_type = $doc['source_type'];
-        $image_url = '';
-        $thumbnail_url = '';
-        
-        if ($source_type === 'meltwater' && isset($doc['content_image'])) {
-            // Para Meltwater, tratar de obtener la imagen original si existe
-            $external_id = isset($doc['external_id']) ? $doc['external_id'] : '';
-            if ($external_id) {
-                $original_path = "images/melwater/{$external_id}_original.webp";
-                $thumbnail_path = "images/melwater/previews/{$external_id}_preview.webp";
-                if (file_exists($original_path)) {
-                    $image_url = $original_path;
-                    $thumbnail_url = $thumbnail_path;
-                } else {
-                    $image_url = $doc['content_image'];
-                }
-            } else {
-                $image_url = $doc['content_image'];
-            }
-        } elseif ($source_type === 'cover') {
-            // Para covers, usar la imagen original y thumbnail de alta calidad
-            $image_url = isset($doc['original_url']) ? $doc['original_url'] : '';
-            $thumbnail_url = isset($doc['thumbnail_url']) ? $doc['thumbnail_url'] : '';
-        } elseif ($source_type === 'resumen' && isset($doc['source'])) {
-            $image_url = $doc['source'];
-        }
-        
-        if ($image_url): ?>
-    <link rel="preload" as="image" href="<?= htmlspecialchars($image_url) ?>?v=<?= ASSETS_VERSION ?>" fetchpriority="high">
-        <?php endif;
-        if ($thumbnail_url): ?>
-    <link rel="preload" as="image" href="<?= htmlspecialchars($thumbnail_url) ?>?v=<?= ASSETS_VERSION ?>" fetchpriority="high">
-        <?php endif;
-    } ?>
+    <!-- Preconnect optimizado -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
+    <!-- Estilos críticos inline -->
     <style>
         /* Critical CSS */
         :root {
@@ -298,14 +261,19 @@ ob_start();
 
         .filter-group {
             display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+            flex-direction: row;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+            max-width: 300px;
         }
 
         .filter-group label {
             color: #f0f0f0;
             font-size: 1.2rem;
             font-weight: bold;
+            white-space: nowrap;
+            margin: 0;
         }
 
         #grupoSelect {
@@ -318,7 +286,8 @@ ob_start();
             outline: none;
             transition: all 0.3s ease;
             cursor: pointer;
-            width: 100%;
+            flex: 1;
+            min-width: 0;
         }
 
         #grupoSelect:hover {
@@ -398,20 +367,26 @@ ob_start();
         }
 
         .card img {
-            position: relative;
             width: 100%;
             height: auto;
             object-fit: contain;
             object-position: center;
             display: block;
-            opacity: 0;
             transition: opacity 0.3s ease;
-            z-index: 2;
-            will-change: opacity;
-            transform: translateZ(0);
         }
 
-        .card img.loaded {
+        .card img.thumbnail {
+            opacity: 1;
+        }
+
+        .card img.original {
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+        }
+
+        .card img.original.loaded {
             opacity: 1;
         }
 
@@ -717,8 +692,24 @@ ob_start();
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     </noscript>
     
-    <link rel="stylesheet" href="styles.css?v=<?= ASSETS_VERSION ?>&t=<?= time() ?>" media="print" onload="this.media='all'">
+    <!-- Cargar estilos no críticos de forma asíncrona -->
+    <link rel="stylesheet" href="styles.css?v=<?= ASSETS_VERSION ?>" media="print" onload="this.media='all'">
 
+    <!-- Fallback para estilos no críticos -->
+    <noscript>
+        <link rel="stylesheet" href="styles.css?v=<?= ASSETS_VERSION ?>">
+    </noscript>
+
+    <!-- Preload de la primera imagen crítica -->
+    <?php if (!empty($filtered_documents)): 
+        $first_doc = reset($filtered_documents);
+        $first_image_url = isset($first_doc['thumbnail_url']) ? $first_doc['thumbnail_url'] : '';
+        if ($first_image_url): ?>
+            <link rel="preload" as="image" href="<?= htmlspecialchars($first_image_url) ?>?v=<?= ASSETS_VERSION ?>" fetchpriority="high">
+        <?php endif;
+    endif; ?>
+
+    <title>Portadas de Periódicos</title>
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -1093,21 +1084,28 @@ ob_start();
                         const highResImg = new Image();
                         
                         highResImg.onload = () => {
-                            img.src = originalSrc;
-                            img.classList.add('high-quality-loaded');
+                            // Crear elemento para la imagen original
+                            const originalImg = document.createElement('img');
+                            originalImg.src = originalSrc;
+                            originalImg.alt = img.alt;
+                            originalImg.classList.add('original');
+                            
+                            // Insertar después del thumbnail
+                            img.parentNode.insertBefore(originalImg, img.nextSibling);
+                            
+                            // Marcar como cargada
                             img.dataset.originalLoaded = 'true';
+                            
+                            // Añadir clase loaded después de un pequeño delay
+                            setTimeout(() => {
+                                originalImg.classList.add('loaded');
+                            }, 50);
                         };
                         
                         highResImg.src = originalSrc;
                     }
                 });
             }
-
-            // Esperar a que la página esté completamente cargada
-            window.addEventListener('load', () => {
-                // Pequeño retraso para asegurar que todo esté listo
-                setTimeout(loadOriginalImages, 1000);
-            });
 
             // Cargar imágenes originales cuando sean visibles
             if ('IntersectionObserver' in window) {
@@ -1120,9 +1118,22 @@ ob_start();
                                 const highResImg = new Image();
                                 
                                 highResImg.onload = () => {
-                                    img.src = originalSrc;
-                                    img.classList.add('high-quality-loaded');
+                                    // Crear elemento para la imagen original
+                                    const originalImg = document.createElement('img');
+                                    originalImg.src = originalSrc;
+                                    originalImg.alt = img.alt;
+                                    originalImg.classList.add('original');
+                                    
+                                    // Insertar después del thumbnail
+                                    img.parentNode.insertBefore(originalImg, img.nextSibling);
+                                    
+                                    // Marcar como cargada
                                     img.dataset.originalLoaded = 'true';
+                                    
+                                    // Añadir clase loaded después de un pequeño delay
+                                    setTimeout(() => {
+                                        originalImg.classList.add('loaded');
+                                    }, 50);
                                 };
                                 
                                 highResImg.src = originalSrc;
@@ -1137,6 +1148,7 @@ ob_start();
 
                 // Observar todas las imágenes
                 document.querySelectorAll('.card img[data-original]').forEach(img => {
+                    img.classList.add('thumbnail');
                     imageObserver.observe(img);
                 });
             }
