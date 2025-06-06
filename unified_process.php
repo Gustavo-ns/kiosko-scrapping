@@ -1,16 +1,66 @@
 <?php
-ini_set('display_errors', '0');
-ini_set('log_errors', '1');
-ini_set('error_log', __DIR__ . '/unified_process.log');
-error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+// Iniciar el buffer de salida
+ob_start();
 
-// Configurar zona horaria
+// Configurar el manejo de errores
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/unified_process.log');
+
+// Configurar el timezone
 date_default_timezone_set('America/Montevideo');
+
+// Configurar el límite de tiempo de ejecución
+set_time_limit(300); // 5 minutos
+
+// Configurar el límite de memoria
+ini_set('memory_limit', '256M');
+
+// Configurar el manejo de cookies y sesiones ANTES de iniciar la sesión
+ini_set('session.cookie_httponly', 1);
+ini_set('session.use_only_cookies', 1);
+ini_set('session.cookie_secure', 1);
+
+// Iniciar la sesión después de configurar las opciones
+session_start();
+
+// Configurar el manejo de headers
+header('Content-Type: text/html; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
 
 // Función para logging
 function logMessage($message, $type = 'INFO') {
-    $date = date('Y-m-d H:i:s');
-    error_log("[$date][$type] $message");
+    $timestamp = date('Y-m-d H:i:s');
+    $logMessage = "[$timestamp][$type] $message\n";
+    error_log($logMessage, 3, __DIR__ . '/unified_process.log');
+    
+    // Escapar caracteres especiales para JavaScript
+    $message = addslashes($message);
+    $type = strtolower($type);
+    
+    // Enviar al frontend
+    echo "<script>
+        addLogEntry('$message', '$type');
+        processedCount++;
+        updateProgress();
+        
+        // Actualizar contadores según el tipo de mensaje
+        if (strpos('$message', 'Meltwater guardado') !== false) {
+            meltwaterCount.textContent = parseInt(meltwaterCount.textContent) + 1;
+        } else if (strpos('$message', 'Cover guardado') !== false) {
+            coversCount.textContent = parseInt(coversCount.textContent) + 1;
+        }
+        
+        // Agregar a últimos registros si es un registro guardado
+        if (strpos('$message', 'guardado exitosamente') !== false) {
+            addLastRecord('$message');
+        }
+    </script>";
+    flush();
+    ob_flush();
 }
 
 // Validar autoload de Composer
@@ -73,148 +123,91 @@ try {
 // 1. PROCESO DE MELTWATER
 logMessage("Iniciando proceso de Meltwater");
 try {
-    // URLs específicas para cada horario
-    $scheduledUrls = [
-        '6:30' => 'https://downloads.exports.meltwater.com/v3/recurring/13742063?data_key=3f4aed98-80fe-3fb1-9cf0-ce4681a26d7c',
-        '7:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13820798?data_key=99180c35-19a8-3b35-8ae7-368a020d3f60',
-        '8:30' => 'https://downloads.exports.meltwater.com/v3/recurring/13841083?data_key=1590e1c0-0060-3ce6-af3b-431a90b5e3e4',
-        '9:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13869250?data_key=262188f9-da14-3148-b734-e071ee3d9f7e',
-        '10:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13869241?data_key=7481954f-4c7c-34c4-89e8-59b79b063ae7'
-    ];
-
-    // Obtener la hora actual y determinar qué URL usar
-    $currentHour = date('H:i');
-    $dataUrl = null;
-    foreach ($scheduledUrls as $time => $url) {
-        if ($currentHour >= $time) {
-            $dataUrl = $url;
+    // Procesar datos de Meltwater
+    $sql = "
+        SELECT 
+            pk.id,
+            pk.external_id,
+            m.title AS medio_title,
+            m.grupo,
+            m.pais,
+            m.dereach,
+            m.visualizar,
+            pk.published_date,
+            pk.content_image,
+            pk.url_destino
+        FROM pk_melwater pk
+        INNER JOIN medios m ON m.twitter_id = pk.external_id
+        WHERE m.visualizar = 1 
+        AND m.grupo IS NOT NULL
+        AND pk.published_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        AND NOT EXISTS (
+            SELECT 1 FROM portadas p 
+            WHERE p.external_id = pk.external_id 
+            AND p.published_date = pk.published_date
+            AND p.source_type = 'meltwater'
+        )
+    ";
+    $stmt = $pdo->query($sql);
+    $melwater_rows = $stmt->fetchAll();
+    
+    logMessage("Encontrados " . count($melwater_rows) . " registros de Meltwater para procesar");
+    
+    $total_inserted = 0;
+    foreach ($melwater_rows as $row) {
+        if (empty($row['medio_title'])) {
+            logMessage("Registro sin título, saltando...", 'WARNING');
+            continue;
         }
-    }
-    if (!$dataUrl) {
-        $dataUrl = end($scheduledUrls);
-    }
 
-    // Obtener y procesar datos de Meltwater
-    $response = file_get_contents($dataUrl);
-    if ($response === FALSE) {
-        throw new Exception("Error al obtener los datos del archivo JSON.");
-    }
-
-    $data = json_decode($response, true);
-    if (!isset($data['documents'])) {
-        throw new Exception("No se encontraron documentos en la respuesta.");
-    }
-
-    // Preparar la consulta de inserción
-    $stmt = $pdo->prepare("INSERT INTO pk_melwater (
-        external_id, published_date, source_id, social_network, 
-        country_code, country_name, author_name, content_image, 
-        content_text, url_destino, input_names
-    ) VALUES (
-        :external_id, :published_date, :source_id, :social_network,
-        :country_code, :country_name, :author_name, :content_image,
-        :content_text, :url_destino, :input_names
-    ) ON DUPLICATE KEY UPDATE
-        published_date = VALUES(published_date),
-        source_id = VALUES(source_id),
-        social_network = VALUES(social_network),
-        country_code = VALUES(country_code),
-        country_name = VALUES(country_name),
-        author_name = VALUES(author_name),
-        content_image = VALUES(content_image),
-        content_text = VALUES(content_text),
-        url_destino = VALUES(url_destino),
-        input_names = VALUES(input_names)");
-
-    $updatedCount = 0;
-    foreach ($data['documents'] as $doc) {
-        $author_name = isset($doc['author']['name']) ? $doc['author']['name'] : 'N/A';
-        $content_image = isset($doc['content']['image']) ? $doc['content']['image'] : null;
-        $content_text = isset($doc['content']['opening_text']) ? $doc['content']['opening_text'] : '';
-        $country_code = strtolower(isset($doc['location']['country_code']) ? $doc['location']['country_code'] : 'zz');
-        $country_name = isset($country_names[$country_code]) ? $country_names[$country_code] : ucfirst($country_code);
-        $url_destino = isset($doc['url']) ? $doc['url'] : '#';
-        $external_id = isset($doc['author']['external_id']) ? $doc['author']['external_id'] : '';
-        $published_date = isset($doc['published_date']) ? $doc['published_date'] : '';
-        $source_id = isset($doc['source']['id']) ? $doc['source']['id'] : '';
+        // Verificar que los archivos de imagen existan
+        $original_url = 'images/melwater/' . $row['external_id'] . '_original.webp';
+        $thumbnail_url = 'images/melwater/previews/' . $row['external_id'] . '_preview.webp';
         
-        // Procesar la imagen si existe
-        if ($content_image && $external_id) {
-            try {
-                // Crear directorios si no existen
-                $melwater_dir = __DIR__ . '/images/melwater';
-                $previews_dir = $melwater_dir . '/previews';
-                foreach ([$melwater_dir, $previews_dir] as $dir) {
-                    if (!file_exists($dir)) {
-                        mkdir($dir, 0755, true);
-                    }
-                }
-
-                // Descargar y procesar la imagen
-                $image_data = file_get_contents($content_image);
-                if ($image_data !== false) {
-                    $temp_file = tempnam(sys_get_temp_dir(), 'melwater_');
-                    file_put_contents($temp_file, $image_data);
-
-                    // Procesar imagen original
-                    $original_filename = $external_id . '_original.webp';
-                    $original_path = $melwater_dir . '/' . $original_filename;
-                    
-                    if (convertToWebP($temp_file, $original_path, 90)) {
-                        // Procesar preview
-                        $preview_filename = $external_id . '_preview.webp';
-                        $preview_path = $previews_dir . '/' . $preview_filename;
-                        
-                        if (convertToWebP($temp_file, $preview_path, 40, 320, 480)) {
-                            $content_image = 'images/melwater/' . $original_filename;
-                        }
-                    }
-                    unlink($temp_file);
-                }
-            } catch (Exception $e) {
-                logMessage("Error procesando imagen para {$external_id}: " . $e->getMessage(), 'ERROR');
-            }
-        }
+        $original_path = __DIR__ . '/' . $original_url;
+        $thumbnail_path = __DIR__ . '/' . $thumbnail_url;
         
-        // Extraer red social del source_id
-        $social_network = '';
-        if (!empty($source_id) && strpos($source_id, 'social:') === 0) {
-            $parts = explode(':', $source_id);
-            $social_network = isset($parts[1]) ? ucfirst($parts[1]) : '';
+        if (!file_exists($original_path) || !file_exists($thumbnail_path)) {
+            logMessage("Error: Archivos de imagen no encontrados para {$row['external_id']}", 'ERROR');
+            continue;
         }
-
-        // Obtener los inputs names
-        $input_names = [];
-        if (isset($doc['matched']['inputs']) && is_array($doc['matched']['inputs'])) {
-            foreach ($doc['matched']['inputs'] as $input) {
-                if (isset($input['name'])) {
-                    $input_names[] = $input['name'];
-                }
-            }
-        }
-        $input_names_str = implode(', ', $input_names);
 
         try {
+            // Insertar directamente en portadas
+            $stmt = $pdo->prepare("INSERT INTO portadas (
+                title, grupo, pais, published_date, dereach, 
+                source_type, external_id, visualizar, 
+                original_url, thumbnail_url,
+                created_at, updated_at
+            ) VALUES (
+                :title, :grupo, :pais, :published_date, :dereach, 
+                'meltwater', :external_id, :visualizar, 
+                :original_url, :thumbnail_url,
+                NOW(), NOW()
+            )");
+            
             $stmt->execute([
-                ':external_id' => $external_id,
-                ':published_date' => $published_date,
-                ':source_id' => $source_id,
-                ':social_network' => $social_network,
-                ':country_code' => $country_code,
-                ':country_name' => $country_name,
-                ':author_name' => $author_name,
-                ':content_image' => $content_image,
-                ':content_text' => $content_text,
-                ':url_destino' => $url_destino,
-                ':input_names' => $input_names_str
+                'title' => mb_substr($row['medio_title'], 0, 255),
+                'grupo' => $row['grupo'],
+                'pais' => $row['pais'],
+                'published_date' => $row['published_date'],
+                'dereach' => $row['dereach'],
+                'external_id' => $row['external_id'],
+                'visualizar' => $row['visualizar'],
+                'original_url' => $row['url_destino'] ?: '#',
+                'thumbnail_url' => $original_url
             ]);
-            $updatedCount++;
+
+            logMessage("Meltwater guardado exitosamente para {$row['medio_title']}");
+            $total_inserted++;
+            
         } catch (PDOException $e) {
-            logMessage("Error al actualizar registro {$external_id}: " . $e->getMessage(), 'ERROR');
+            logMessage("Error al insertar registro de Meltwater: " . $e->getMessage(), 'ERROR');
             continue;
         }
     }
-    logMessage("Meltwater actualizado: $updatedCount registros");
+    
+    logMessage("Procesamiento de Meltwater completado. Total insertados: $total_inserted");
 } catch (Exception $e) {
     logMessage("Error en proceso Meltwater: " . $e->getMessage(), 'ERROR');
 }
@@ -815,92 +808,210 @@ function saveImageLocally($imageUrl, $country, $alt) {
 }
 
 function storeCover($country, $alt, $urlImg, $sourceLink) {
+    global $pdo;
+    
     try {
-        $pdo = getPDO();
-        if (!$pdo instanceof PDO) {
-            logMessage("Error: Failed to get valid PDO instance in storeCover function", 'ERROR');
+        // Verificar si existe en medios
+        $stmt = $pdo->prepare("SELECT id, title, grupo, pais, dereach, visualizar, twitter_id 
+                             FROM medios 
+                             WHERE source = :source 
+                             AND visualizar = 1 
+                             AND grupo IS NOT NULL");
+        $stmt->execute(['source' => $sourceLink]);
+        $medio = $stmt->fetch();
+
+        if (!$medio) {
+            logMessage("Medio no encontrado o no activo para $sourceLink", 'WARNING');
             return false;
         }
-        
-        // Limpiar la URL de la imagen antes de procesarla
-        $urlImg = cleanImageUrl($urlImg);
-        logMessage("Procesando cover - País: $country, URL: $urlImg, Fuente: $sourceLink");
-        
-        // Verificar si ya existe la imagen
-        $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
-        $stmt->execute([':c' => $country, ':u' => $urlImg]);
-        if ($stmt->fetchColumn()) {
-            logMessage("Cover ya existe para $country y $urlImg");
-            return true;
+
+        // Verificar que el país coincida con el de medios
+        if (strtolower($medio['pais']) !== strtolower($country)) {
+            logMessage("El país del medio ({$medio['pais']}) no coincide con el país del cover ($country) para $sourceLink", 'WARNING');
+            return false;
+        }
+
+        // Verificar si ya existe un registro con este external_id (independientemente del source_type)
+        $stmt = $pdo->prepare("SELECT id FROM portadas 
+                             WHERE external_id = :external_id 
+                             AND published_date = DATE(NOW())");
+        $stmt->execute(['external_id' => $medio['twitter_id']]);
+        if ($stmt->fetch()) {
+            logMessage("Saltando cover porque ya existe un registro con el external_id {$medio['twitter_id']}", 'INFO');
+            return false;
         }
 
         $imageResult = saveImageLocally($urlImg, $country, $alt);
         if (!$imageResult) {
-            logMessage("Error al guardar imagen localmente para $urlImg", 'ERROR');
+            logMessage("Error al procesar imagen para $sourceLink", 'ERROR');
             return false;
         }
 
-        logMessage("Imagen guardada exitosamente: " . print_r($imageResult, true));
+        $stmt = $pdo->prepare("INSERT INTO portadas (
+            title, grupo, pais, published_date, dereach, 
+            source_type, external_id, visualizar, 
+            original_url, thumbnail_url,
+            created_at, updated_at
+        ) VALUES (
+            :title, :grupo, :pais, NOW(), :dereach, 
+            'cover', :external_id, :visualizar, 
+            :original_url, :thumbnail_url,
+            NOW(), NOW()
+        )");
+        
+        $stmt->execute([
+            'title' => $medio['title'],
+            'grupo' => $medio['grupo'],
+            'pais' => $medio['pais'],
+            'dereach' => $medio['dereach'],
+            'external_id' => $medio['twitter_id'],
+            'visualizar' => $medio['visualizar'],
+            'original_url' => $sourceLink,
+            'thumbnail_url' => $imageResult['thumbnail']
+        ]);
 
-        try {
-            $ins = $pdo->prepare("INSERT INTO covers(
-                country, title, image_url, source, original_link, 
-                preview_url, thumbnail_url, original_url, 
-                created_at, updated_at, scraped_at
-            ) VALUES(
-                :c, :t, :i, :s, :l, 
-                :pr, :th, :or,
-                NOW(), NOW(), NOW()
-            )");
-            
-            $params = [
-                ':c' => $country, 
-                ':t' => $alt, 
-                ':i' => $imageResult['thumbnail'],
-                ':s' => $sourceLink, 
-                ':l' => $urlImg,
-                ':pr' => $imageResult['preview'],
-                ':th' => $imageResult['thumbnail'],
-                ':or' => $imageResult['original']
-            ];
-            
-            logMessage("Intentando insertar cover con parámetros: " . print_r($params, true));
-            
-            $ins->execute($params);
-            logMessage("Cover insertado exitosamente");
-            return true;
-            
-        } catch (PDOException $e) {
-            // Si la tabla no tiene las columnas de timestamp, usar estructura antigua
-            if (strpos($e->getMessage(), 'created_at') !== false) {
-                logMessage("Fallback: usando estructura antigua sin timestamps para $sourceLink");
-                $ins_fallback = $pdo->prepare("INSERT INTO covers(
-                    country, title, image_url, source, original_link, 
-                    thumbnail_url, original_url, scraped_at
-                ) VALUES(
-                    :c, :t, :i, :s, :l, 
-                    :th, :or, NOW()
-                )");
-                
-                $ins_fallback->execute([
-                    ':c' => $country, 
-                    ':t' => $alt, 
-                    ':i' => $imageResult['thumbnail'],
-                    ':s' => $sourceLink, 
-                    ':l' => $urlImg,
-                    ':th' => $imageResult['thumbnail'],
-                    ':or' => $imageResult['original']
-                ]);
-                logMessage("Cover insertado exitosamente con estructura antigua");
-                return true;
-            } else {
-                logMessage("Error al insertar cover: " . $e->getMessage(), 'ERROR');
-                throw $e;
-            }
-        }
-    } catch (Exception $e) {
-        logMessage("Error in storeCover: " . $e->getMessage(), 'ERROR');
+        logMessage("Cover guardado exitosamente para $sourceLink");
+        return true;
+    } catch (PDOException $e) {
+        logMessage("Error al guardar cover para $sourceLink: " . $e->getMessage(), 'ERROR');
         return false;
     }
-    return true;
-} 
+}
+
+header('Content-Type: text/html; charset=utf-8');
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesamiento de Portadas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .success-icon {
+            font-size: 100px;
+            color: #28a745;
+            display: none;
+        }
+        .progress-container {
+            margin: 20px 0;
+        }
+        .log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .log-info { color: #0d6efd; }
+        .log-warning { color: #ffc107; }
+        .log-error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Procesamiento de Portadas</h1>
+        
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status" id="loadingSpinner">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <div class="success-icon" id="successIcon">✓</div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     role="progressbar" style="width: 0%" id="progressBar"></div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Registros Procesados</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statsContainer">
+                            <p>Meltwater: <span id="meltwaterCount">0</span></p>
+                            <p>Covers: <span id="coversCount">0</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Últimos Registros</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="lastRecords" class="log-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-container mt-4" id="logContainer"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let processedCount = 0;
+        let totalRecords = 0;
+        const logContainer = document.getElementById('logContainer');
+        const lastRecords = document.getElementById('lastRecords');
+        const progressBar = document.getElementById('progressBar');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const successIcon = document.getElementById('successIcon');
+        const meltwaterCount = document.getElementById('meltwaterCount');
+        const coversCount = document.getElementById('coversCount');
+
+        function updateProgress() {
+            const progress = (processedCount / totalRecords) * 100;
+            progressBar.style.width = `${progress}%`;
+            
+            if (progress >= 100) {
+                loadingSpinner.style.display = 'none';
+                successIcon.style.display = 'block';
+            }
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = message;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function addLastRecord(record) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = record;
+            lastRecords.insertBefore(entry, lastRecords.firstChild);
+            if (lastRecords.children.length > 10) {
+                lastRecords.removeChild(lastRecords.lastChild);
+            }
+        }
+
+        function updateStats(meltwater, covers) {
+            meltwaterCount.textContent = meltwater;
+            coversCount.textContent = covers;
+        }
+
+        // Iniciar el proceso
+        window.onload = function() {
+            // Establecer el total de registros (ajustar según sea necesario)
+            totalRecords = 100;
+            updateProgress();
+        };
+    </script>
+</body>
+</html> 

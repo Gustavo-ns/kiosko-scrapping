@@ -290,20 +290,44 @@ ob_start();
             margin-bottom: 0.5rem;
         }
 
-        #grupoSelect {
+        .filters {
+            margin-bottom: 1rem;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-group label {
+            color: #f0f0f0;
             font-size: 1.2rem;
-            padding: 0.5rem 1rem;
+            font-weight: bold;
+        }
+
+        #grupoSelect {
+            font-size: 1.1rem;
+            padding: 0.5rem;
             background-color: #222;
             color: #f0f0f0;
             border: 2px solid #444;
             border-radius: 8px;
             outline: none;
-            transition: border-color var(--transition-speed);
+            transition: all 0.3s ease;
             cursor: pointer;
+            width: 100%;
         }
 
         #grupoSelect:hover {
             border-color: var(--accent-color);
+        }
+
+        #grupoSelect:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2);
         }
 
         .gallery {
@@ -314,6 +338,8 @@ ob_start();
             contain: layout style;
             will-change: transform;
             transform: translateZ(0);
+            position: relative;
+            min-height: 400px;
         }
 
         .card {
@@ -327,7 +353,9 @@ ob_start();
             transform-style: preserve-3d;
             will-change: transform;
             contain: layout style paint;
-            transform: translateZ(0);
+            transform: translateY(0);
+            transition: all 0.3s ease-out;
+            opacity: 1;
         }
 
         .card:hover {
@@ -349,6 +377,26 @@ ob_start();
             transform: translateZ(0);
         }
 
+        .image-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            z-index: 1;
+            opacity: 1;
+            transition: opacity 0.3s ease-out;
+        }
+
+        .image-container.loaded::before {
+            opacity: 0;
+            pointer-events: none;
+        }
+
         .card img {
             position: relative;
             width: 100%;
@@ -357,14 +405,23 @@ ob_start();
             object-position: center;
             display: block;
             opacity: 0;
-            transition: opacity var(--transition-speed) ease;
-            z-index: 1;
+            transition: opacity 0.3s ease;
+            z-index: 2;
             will-change: opacity;
             transform: translateZ(0);
         }
 
         .card img.loaded {
             opacity: 1;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
         }
 
         .blur-on-load {
@@ -559,6 +616,80 @@ ob_start();
                 scroll-behavior: auto !important;
             }
         }
+
+        /* Efectos de transición para grupos */
+        .card {
+            transition: all 0.3s ease-out;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .card.hidden {
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
+        }
+
+        .card.visible {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .group-transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .group-transition-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .group-transition-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .group-name {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .group-transition-overlay.active .group-name {
+            opacity: 1;
+        }
     </style>
     <!-- Favicon básico -->
     <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
@@ -590,8 +721,25 @@ ob_start();
 
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Skeleton Loading -->
+    <div id="skeletonContainer" class="skeleton-container">
+        <?php for($i = 0; $i < 12; $i++): ?>
+            <div class="skeleton-card">
+                <div class="skeleton skeleton-image"></div>
+                <div class="skeleton skeleton-title"></div>
+                <div class="skeleton skeleton-text"></div>
+                <div class="skeleton skeleton-text"></div>
+            </div>
+        <?php endfor; ?>
+    </div>
+
     <!-- Skip link for accessibility -->
-    <a href="#gallery" class="skip-link" style="position: absolute; top: -40px; left: 6px; background: #000; color: #fff; padding: 8px; text-decoration: none; z-index: 9999;">Ir al contenido principal</a>
+    <a href="#gallery" class="skip-link">Ir al contenido principal</a>
     
     <div class="container">
         <div class="controls">
@@ -658,10 +806,9 @@ ob_start();
                 <div class="filters">
                     <div class="filter-group">
                         <label for="grupoSelect">Grupo:</label>
-                        <select id="grupoSelect">
+                        <select id="grupoSelect" class="form-control">
                             <option value="">Todos los grupos (<?= count($filtered_documents) ?>)</option>
                             <?php 
-                            // Ordenar grupos alfabéticamente
                             ksort($groupTotals);
                             foreach ($groupTotals as $grupo => $total): 
                                 if ($total > 0):
@@ -674,9 +821,12 @@ ob_start();
                             endforeach; 
                             ?>
                         </select>
-                    </div>                </div>
-            <?php endif; ?>            <button id="refreshBtn" style="display: none;">🔄 Actualizar</button>
-        </div><div id="gallery" class="gallery">
+                    </div>
+                </div>
+            <?php endif; ?>
+            <button id="refreshBtn" style="display: none;">🔄 Actualizar</button>
+        </div>
+        <div id="gallery" class="gallery">
             <?php
             // Debug: mostrar información de los documentos
             echo "<!-- Debug: Total documentos: " . count($documents) . " -->";
@@ -789,7 +939,8 @@ ob_start();
             endforeach; 
             ?>
         </div>
-    </div>    <div id="imageModal" class="modal">
+    </div>
+    <div id="imageModal" class="modal">
         <span class="close">&times;</span>
         <div class="loader" id="modalLoader"></div>
         <img id="modalImage" alt="Imagen en modal" style="display: none;">
@@ -812,7 +963,15 @@ ob_start();
                 ⚡ Recarga Forzada
             </button>
         </div>
-    </footer><script>
+    </footer>
+
+    <!-- Overlay para transición de grupos -->
+    <div id="groupTransitionOverlay" class="group-transition-overlay">
+        <div class="group-transition-spinner"></div>
+        <div id="groupName" class="group-name"></div>
+    </div>
+
+    <script>
         // Optimización de preload para PageSpeed
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('service-worker.js')
@@ -822,70 +981,151 @@ ob_start();
 
         // Optimización completa de imágenes y funcionalidad de la aplicación
         document.addEventListener('DOMContentLoaded', () => {
-            // Performance monitoring
-            const perfStart = performance.now();
-            
-            // Obtener el grupo inicial de la URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const initialGrupo = urlParams.get('grupo') || '';
-            
-            // Batch DOM updates
-            const updateQueue = [];
-            let isUpdating = false;
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const skeletonContainer = document.getElementById('skeletonContainer');
+            const container = document.querySelector('.container');
+            let imagesLoaded = 0;
+            let totalImages = 0;
 
-            function batchUpdate(callback) {
-                updateQueue.push(callback);
-                if (!isUpdating) {
-                    isUpdating = true;
-                    requestAnimationFrame(() => {
-                        const updates = updateQueue.splice(0);
-                        updates.forEach(update => update());
-                        isUpdating = false;
-                    });
-                }
-            }
+            const grupoSelect = document.getElementById('grupoSelect');
+            const gallery = document.getElementById('gallery');
+            const cards = Array.from(gallery.querySelectorAll('.card'));
 
-            // Cargar imágenes progresivamente
-            function loadProgressiveImages() {
-                const images = document.querySelectorAll('.progressive-image');
-                images.forEach(img => {
-                    if (img.dataset.progressiveState === 'loading' || img.dataset.progressiveState === 'loaded') {
-                        return;
-                    }
-
-                    img.dataset.progressiveState = 'loading';
-                    const originalSrc = img.dataset.original;
-                    const highResImg = new Image();
-
-                    highResImg.onload = () => {
-                        batchUpdate(() => {
-                            img.src = originalSrc;
-                            img.classList.add('high-quality-loaded');
-                            img.dataset.progressiveState = 'loaded';
-                        });
-                    };
-
-                    highResImg.onerror = () => {
-                        img.dataset.progressiveState = 'error';
-                    };
-
-                    highResImg.src = originalSrc;
+            // Función optimizada para filtrar y actualizar URL
+            function filterCards() {
+                const selectedGrupo = grupoSelect.value;
+                const url = new URL(window.location);
+                selectedGrupo ? url.searchParams.set('grupo', selectedGrupo) : url.searchParams.delete('grupo');
+                window.history.replaceState({}, '', url);
+                
+                cards.forEach(card => {
+                    const shouldShow = !selectedGrupo || card.dataset.grupo === selectedGrupo;
+                    card.style.display = shouldShow ? '' : 'none';
+                    card.classList.toggle('visible', shouldShow);
+                    card.classList.toggle('hidden', !shouldShow);
                 });
             }
 
-            // Cargar imágenes progresivamente después de que la página esté lista
+            if (grupoSelect) {
+                grupoSelect.addEventListener('change', filterCards);
+                const initialGrupo = new URLSearchParams(window.location.search).get('grupo');
+                if (initialGrupo) {
+                    grupoSelect.value = initialGrupo;
+                    filterCards();
+                }
+            }
+
+            // Función para manejar la carga de una imagen individual
+            function handleImageLoad(img) {
+                const container = img.closest('.image-container');
+                if (container) {
+                    container.classList.add('loaded');
+                }
+                img.classList.add('loaded');
+                imagesLoaded++;
+                
+                if (imagesLoaded === totalImages) {
+                    hideLoaders();
+                }
+            }
+
+            // Función para verificar si todas las imágenes están cargadas
+            function checkAllImagesLoaded() {
+                const images = document.querySelectorAll('.card img');
+                totalImages = images.length;
+                
+                if (totalImages === 0) {
+                    hideLoaders();
+                    return;
+                }
+
+                images.forEach(img => {
+                    if (img.complete) {
+                        handleImageLoad(img);
+                    } else {
+                        img.addEventListener('load', () => handleImageLoad(img));
+                        img.addEventListener('error', () => {
+                            // Si hay error, marcar como cargada de todos modos
+                            handleImageLoad(img);
+                        });
+                    }
+                });
+
+                // Timeout de seguridad
+                setTimeout(hideLoaders, 5000);
+            }
+
+            // Función para ocultar los loaders
+            function hideLoaders() {
+                // Asegurarse de que todas las imágenes y contenedores estén marcados como cargados
+                document.querySelectorAll('.card img').forEach(img => {
+                    if (!img.classList.contains('loaded')) {
+                        handleImageLoad(img);
+                    }
+                });
+
+                loadingOverlay.classList.add('fade-out');
+                skeletonContainer.classList.add('fade-out');
+                container.classList.add('fade-in');
+
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                    skeletonContainer.style.display = 'none';
+                }, 500);
+            }
+
+            // Iniciar verificación de carga
+            checkAllImagesLoaded();
+
+            // Verificar también cuando el DOM esté completamente cargado
             window.addEventListener('load', () => {
-                setTimeout(loadProgressiveImages, 100);
+                if (imagesLoaded < totalImages) {
+                    checkAllImagesLoaded();
+                }
             });
 
-            // Cargar imágenes progresivamente cuando sean visibles
+            // Función para cargar imágenes originales después de que la página esté lista
+            function loadOriginalImages() {
+                const images = document.querySelectorAll('.card img[data-original]');
+                images.forEach(img => {
+                    if (img.dataset.original && !img.dataset.originalLoaded) {
+                        const originalSrc = img.dataset.original;
+                        const highResImg = new Image();
+                        
+                        highResImg.onload = () => {
+                            img.src = originalSrc;
+                            img.classList.add('high-quality-loaded');
+                            img.dataset.originalLoaded = 'true';
+                        };
+                        
+                        highResImg.src = originalSrc;
+                    }
+                });
+            }
+
+            // Esperar a que la página esté completamente cargada
+            window.addEventListener('load', () => {
+                // Pequeño retraso para asegurar que todo esté listo
+                setTimeout(loadOriginalImages, 1000);
+            });
+
+            // Cargar imágenes originales cuando sean visibles
             if ('IntersectionObserver' in window) {
                 const imageObserver = new IntersectionObserver((entries) => {
                     entries.forEach(entry => {
                         if (entry.isIntersecting) {
                             const img = entry.target;
-                            if (img.classList.contains('progressive-image')) {
-                                loadProgressiveImages();
+                            if (img.dataset.original && !img.dataset.originalLoaded) {
+                                const originalSrc = img.dataset.original;
+                                const highResImg = new Image();
+                                
+                                highResImg.onload = () => {
+                                    img.src = originalSrc;
+                                    img.classList.add('high-quality-loaded');
+                                    img.dataset.originalLoaded = 'true';
+                                };
+                                
+                                highResImg.src = originalSrc;
                                 imageObserver.unobserve(img);
                             }
                         }
@@ -895,98 +1135,11 @@ ob_start();
                     threshold: 0.1
                 });
 
-                document.querySelectorAll('.progressive-image').forEach(img => {
+                // Observar todas las imágenes
+                document.querySelectorAll('.card img[data-original]').forEach(img => {
                     imageObserver.observe(img);
                 });
             }
-
-            // Optimizar filtrado de tarjetas
-            function filterCards() {
-                const selectedGrupo = grupoSelect.value;
-                const cards = gallery.querySelectorAll('.card');
-                
-                batchUpdate(() => {
-                    cards.forEach(card => {
-                        const cardGrupo = card.dataset.grupo;
-                        const matchesGrupo = !selectedGrupo || cardGrupo === selectedGrupo;
-                        card.style.display = matchesGrupo ? '' : 'none';
-                    });
-                });
-
-                updateURL();
-            }
-
-            // Optimizar actualización de URL
-            function updateURL() {
-                const url = new URL(window.location);
-                const grupo = grupoSelect.value;
-                
-                batchUpdate(() => {
-                    if (grupo) url.searchParams.set('grupo', grupo);
-                    else url.searchParams.delete('grupo');
-                    history.replaceState(null, '', url);
-                });
-            }
-
-            // Optimizar modal
-            function showModal(imageUrl) {
-                batchUpdate(() => {
-                    modalImage.style.display = 'none';
-                    modalLoader.style.display = 'block';
-                    imageModal.classList.add('show');
-                    imageModal.style.display = 'flex';
-                });
-
-                modalImage.onload = () => {
-                    batchUpdate(() => {
-                        modalLoader.style.display = 'none';
-                        modalImage.style.display = 'block';
-                    });
-                };
-                modalImage.src = imageUrl;
-            }
-
-            // Event listeners optimizados
-            const grupoSelect = document.getElementById('grupoSelect');
-            const gallery = document.getElementById('gallery');
-            const modalImage = document.getElementById('modalImage');
-            const modalLoader = document.getElementById('modalLoader');
-            const imageModal = document.getElementById('imageModal');
-
-            grupoSelect.addEventListener('change', filterCards);
-            
-            if (initialGrupo) {
-                grupoSelect.value = initialGrupo;
-                filterCards();
-            }
-
-            // Optimizar recarga
-            const refreshBtn = document.getElementById('refreshBtn');
-            refreshBtn.addEventListener('click', async () => {
-                batchUpdate(() => {
-                    refreshBtn.disabled = true;
-                    refreshBtn.textContent = 'Actualizando...';
-                });
-                
-                try {
-                    const response = await fetch('update_melwater.php');
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Error al actualizar: ' + data.message);
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Error al actualizar los datos');
-                } finally {
-                    batchUpdate(() => {
-                        refreshBtn.disabled = false;
-                        refreshBtn.textContent = '🔄 Actualizar';
-                    });
-                }
-            });
         });
 
         // Función para forzar recarga (testing)
@@ -1008,76 +1161,6 @@ ob_start();
             // Forzar recarga completa
             window.location.href = url.toString();
         }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Función para manejar la carga de imágenes
-            function handleImageLoad(img) {
-                img.classList.add('loaded');
-                const container = img.closest('.image-container');
-                if (container) {
-                    container.classList.add('loaded');
-                }
-            }
-
-            // Función para cambiar a imagen de alta resolución
-            function loadHighResImage(img) {
-                const originalSrc = img.dataset.original;
-                if (originalSrc && originalSrc !== img.src) {
-                    const highResImg = new Image();
-                    highResImg.onload = function() {
-                        img.src = originalSrc;
-                        img.classList.add('high-quality-loaded');
-                        handleImageLoad(img);
-                    };
-                    highResImg.src = originalSrc;
-                }
-            }
-
-            // Manejar imágenes existentes
-            document.querySelectorAll('.card img').forEach(img => {
-                if (img.complete) {
-                    handleImageLoad(img);
-                } else {
-                    img.addEventListener('load', function() {
-                        handleImageLoad(this);
-                    });
-                }
-            });
-
-            // Esperar a que todo el sitio esté cargado antes de cargar las imágenes originales
-            window.addEventListener('load', function() {
-                // Pequeño retraso para asegurar que todo esté listo
-                setTimeout(() => {
-                    // Implementación del IntersectionObserver para lazy loading
-                    if ('IntersectionObserver' in window) {
-                        const imageObserver = new IntersectionObserver((entries) => {
-                            entries.forEach(entry => {
-                                if (entry.isIntersecting) {
-                                    const img = entry.target;
-                                    loadHighResImage(img);
-                                    imageObserver.unobserve(img);
-                                }
-                            });
-                        }, {
-                            rootMargin: '50px 0px',
-                            threshold: 0.1
-                        });
-
-                        // Observar todas las imágenes
-                        document.querySelectorAll('.card img').forEach(img => {
-                            imageObserver.observe(img);
-                        });
-                    }
-                }, 500); // 500ms de retraso para asegurar que todo esté listo
-            });
-
-            // Asegurar que el efecto de carga se quite después de un tiempo máximo
-            setTimeout(() => {
-                document.querySelectorAll('.image-container').forEach(container => {
-                    container.classList.add('loaded');
-                });
-            }, 3000);
-        });
     </script>
 </body>
 </html><?php
