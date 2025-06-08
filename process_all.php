@@ -17,12 +17,53 @@ set_time_limit(900); // 15 minutos para todo el proceso
 // Configurar el límite de memoria
 ini_set('memory_limit', '512M');
 
+// Cargar configuración de la base de datos
+$cfg = require 'config.php';
+
+try {
+    // Inicializar conexión PDO
+    $pdo = new PDO(
+        "mysql:host={$cfg['db']['host']};dbname={$cfg['db']['name']};charset={$cfg['db']['charset']}",
+        $cfg['db']['user'],
+        $cfg['db']['pass'],
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+        ]
+    );
+} catch (PDOException $e) {
+    logMessage("Error de conexión a la base de datos: " . $e->getMessage(), 'ERROR');
+    die("Error de conexión a la base de datos");
+}
+
+// Función para obtener la fecha de inicio (ayer a las 18hs)
+function getStartDate() {
+    $startDate = new DateTime();
+    $startDate->setTime(18, 0, 0); // Establecer a las 18:00
+    $startDate->modify('-1 day'); // Retroceder un día
+    return $startDate;
+}
+
 // Función para logging
 function logMessage($message, $type = 'INFO') {
     $timestamp = date('Y-m-d H:i:s');
     $logMessage = "[$timestamp][$type] $message\n";
     error_log($logMessage, 3, __DIR__ . '/process_all.log');
-    echo "<div class='log-entry log-$type'>$message</div>";
+    
+    // Enviar el log al JavaScript
+    echo "<script>addLogFromPHP('" . addslashes($message) . "', '" . strtolower($type) . "');</script>";
+    
+    // También mostrar en el HTML
+    echo "<div class='log-entry log-" . strtolower($type) . "'>";
+    echo "<i class='log-icon fas " . 
+        (strtolower($type) === 'info' ? 'fa-info-circle' :
+         strtolower($type) === 'warning' ? 'fa-exclamation-circle' :
+         'fa-times-circle') . "'></i>";
+    echo "<div class='log-content'>";
+    echo "<div class='log-message'>" . htmlspecialchars($message) . "</div>";
+    echo "<div class='log-timestamp'>" . $timestamp . "</div>";
+    echo "</div></div>";
+    
     flush();
     ob_flush();
 }
@@ -31,10 +72,14 @@ function logMessage($message, $type = 'INFO') {
 function executeProcess($processName, $scriptPath) {
     logMessage("Iniciando proceso: $processName");
     
+    // Pasar la fecha de inicio como parámetro
+    $startDate = getStartDate();
+    $startDateStr = $startDate->format('Y-m-d H:i:s');
+    
     // Ejecutar el script y capturar la salida
     $output = [];
     $returnVar = 0;
-    exec("php $scriptPath 2>&1", $output, $returnVar);
+    exec("php $scriptPath --start-date=\"$startDateStr\" 2>&1", $output, $returnVar);
     
     // Verificar si hubo errores
     if ($returnVar !== 0) {
@@ -53,6 +98,55 @@ function executeProcess($processName, $scriptPath) {
     logMessage("Proceso $processName completado exitosamente");
     return true;
 }
+
+// Obtener los datos unificados de la tabla portadas
+$stmt = $pdo->query("
+    SELECT *
+    FROM portadas
+    WHERE published_date >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 18:00:00')
+    AND published_date <= NOW()
+    AND published_date IS NOT NULL
+    ORDER BY published_date DESC
+");
+$documents = $stmt->fetchAll();
+
+// Filtrar documentos por fecha
+$now = new DateTime(); // ahora
+$yesterday = new DateTime();
+$yesterday->setTime(18, 0, 0); // Establecer a las 18:00
+$yesterday->modify('-1 day'); // Retroceder un día
+
+error_log("Total documentos obtenidos de portadas: " . count($documents));
+error_log("Rango de fechas: " . $yesterday->format('Y-m-d H:i:s') . " hasta " . $now->format('Y-m-d H:i:s'));
+
+$filtered_documents = array_filter($documents, function($doc) use ($yesterday, $now) {
+    $date_str = isset($doc['published_date']) ? $doc['published_date'] : null;
+    if (!$date_str) return false;
+    try {
+        $doc_date = new DateTime($date_str);
+        // Validar que la fecha no sea futura
+        if ($doc_date > $now) {
+            error_log("Documento con fecha futura encontrado: " . $date_str);
+            return false;
+        }
+        // Validar que la fecha no sea anterior a ayer a las 18hs
+        if ($doc_date < $yesterday) {
+            error_log("Documento con fecha anterior al rango permitido: " . $date_str);
+            return false;
+        }
+        $is_in_range = $doc_date >= $yesterday && $doc_date <= $now;
+        if (!$is_in_range) return false;
+    } catch (Exception $e) {
+        error_log("Error al procesar fecha: " . $date_str . " - " . $e->getMessage());
+        return false;
+    }
+    // Solo mostrar si visualizar=1
+    if (isset($doc['visualizar']) && $doc['visualizar'] != 1) return false;
+    return true;
+});
+
+// Log de documentos filtrados
+error_log("Documentos después de filtrar fechas: " . count($filtered_documents));
 
 ?>
 <!DOCTYPE html>
@@ -400,6 +494,133 @@ function executeProcess($processName, $scriptPath) {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            background: #f8f9fa;
+            color: var(--primary-color);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .filter-button:hover {
+            background: var(--secondary-color);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .filter-button.active {
+            background: var(--secondary-color);
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .action-button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.9rem;
+        }
+
+        .action-button.primary {
+            background: var(--secondary-color);
+            color: white;
+            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+        }
+
+        .action-button.secondary {
+            background: #f8f9fa;
+            color: var(--primary-color);
+            border: 2px solid #e9ecef;
+        }
+
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+        }
+
+        .action-button i {
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 768px) {
+            .filter-buttons {
+                justify-content: center;
+            }
+
+            .action-buttons {
+                justify-content: center;
+            }
+
+            .action-button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -454,12 +675,36 @@ function executeProcess($processName, $scriptPath) {
                     <input type="text" id="logSearch" placeholder="Buscar en logs...">
                 </div>
                 <div class="filter-buttons">
-                    <button class="filter-button active" data-filter="all">Todos</button>
-                    <button class="filter-button" data-filter="info">Info</button>
-                    <button class="filter-button" data-filter="warning">Advertencias</button>
-                    <button class="filter-button" data-filter="error">Errores</button>
+                    <button class="filter-button active" data-filter="all">
+                        <i class="fas fa-list"></i> Todos
+                    </button>
+                    <button class="filter-button" data-filter="info">
+                        <i class="fas fa-info-circle"></i> Info
+                    </button>
+                    <button class="filter-button" data-filter="warning">
+                        <i class="fas fa-exclamation-circle"></i> Advertencias
+                    </button>
+                    <button class="filter-button" data-filter="error">
+                        <i class="fas fa-times-circle"></i> Errores
+                    </button>
                 </div>
-                <div id="logsContent" class="log-container"></div>
+                <div id="logsContent" class="log-container">
+                    <?php
+                    // Mostrar logs iniciales
+                    logMessage("Iniciando proceso de actualización");
+                    logMessage("Total documentos obtenidos: " . count($documents));
+                    logMessage("Documentos filtrados: " . count($filtered_documents));
+                    logMessage("Rango de fechas: " . $yesterday->format('Y-m-d H:i:s') . " hasta " . $now->format('Y-m-d H:i:s'));
+                    ?>
+                </div>
+                <div class="action-buttons">
+                    <button class="action-button primary" onclick="clearLogs()">
+                        <i class="fas fa-trash"></i> Limpiar Logs
+                    </button>
+                    <button class="action-button secondary" onclick="exportLogs()">
+                        <i class="fas fa-download"></i> Exportar
+                    </button>
+                </div>
             </div>
 
             <div class="tab-content" id="status-tab">
@@ -651,6 +896,35 @@ function executeProcess($processName, $scriptPath) {
 
         // Limpiar logs antiguos cada 5 minutos
         setInterval(cleanOldLogs, 300000);
+
+        // Función para limpiar logs
+        function clearLogs() {
+            document.getElementById('logsContent').innerHTML = '';
+            logs = [];
+            addLogEntry('Logs limpiados', 'info');
+        }
+
+        // Función para exportar logs
+        function exportLogs() {
+            const logText = logs.map(log => 
+                `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`
+            ).join('\n');
+            
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logs_${new Date().toISOString().slice(0,19).replace(/[:]/g, '-')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Función para agregar logs desde PHP
+        function addLogFromPHP(message, type = 'info') {
+            addLogEntry(message, type);
+        }
     </script>
 </body>
 </html>

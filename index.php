@@ -55,7 +55,9 @@ try {
     $stmt = $pdo->query("
         SELECT *
         FROM portadas
-        WHERE published_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        WHERE published_date >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 18:00:00')
+        AND published_date <= NOW()
+        AND published_date IS NOT NULL
         ORDER BY published_date DESC
     ");
     $documents = $stmt->fetchAll();
@@ -63,7 +65,8 @@ try {
     // Filtrar documentos por fecha
     $now = new DateTime(); // ahora
     $yesterday = new DateTime();
-    $yesterday->modify('-24 hours');
+    $yesterday->setTime(18, 0, 0); // Establecer a las 18:00
+    $yesterday->modify('-1 day'); // Retroceder un día
     
     error_log("Total documentos obtenidos de portadas: " . count($documents));
     error_log("Rango de fechas: " . $yesterday->format('Y-m-d H:i:s') . " hasta " . $now->format('Y-m-d H:i:s'));
@@ -73,15 +76,29 @@ try {
         if (!$date_str) return false;
         try {
             $doc_date = new DateTime($date_str);
+            // Validar que la fecha no sea futura
+            if ($doc_date > $now) {
+                error_log("Documento con fecha futura encontrado: " . $date_str);
+                return false;
+            }
+            // Validar que la fecha no sea anterior a ayer a las 18hs
+            if ($doc_date < $yesterday) {
+                error_log("Documento con fecha anterior al rango permitido: " . $date_str);
+                return false;
+            }
             $is_in_range = $doc_date >= $yesterday && $doc_date <= $now;
             if (!$is_in_range) return false;
         } catch (Exception $e) {
+            error_log("Error al procesar fecha: " . $date_str . " - " . $e->getMessage());
             return false;
         }
         // Solo mostrar si visualizar=1
         if (isset($doc['visualizar']) && $doc['visualizar'] != 1) return false;
         return true;
     });
+
+    // Log de documentos filtrados
+    error_log("Documentos después de filtrar fechas: " . count($filtered_documents));
 
     // Desglose por tipo
     $type_counts = ['meltwater' => 0, 'cover' => 0, 'resumen' => 0];
