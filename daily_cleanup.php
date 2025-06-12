@@ -47,7 +47,7 @@ try {
     // 1. Limpiar registros de pk_meltwater_resumen antiguos (más de 24 horas) que no se visualizan
     $stmt1 = $pdo->prepare("
         DELETE FROM pk_meltwater_resumen 
-        WHERE published_date < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        WHERE indexed_date < DATE_SUB(NOW(), INTERVAL 24 HOUR)
         AND visualizar = 0
     ");
     $stmt1->execute();
@@ -56,7 +56,7 @@ try {
     // 2. Limpiar registros de pk_melwater muy antiguos (más de 7 días) para no sobrecargar la BD
     $stmt2 = $pdo->prepare("
         DELETE FROM pk_melwater 
-        WHERE published_date < DATE_SUB(NOW(), INTERVAL 7 DAY)
+        WHERE indexed_date < DATE_SUB(NOW(), INTERVAL 7 DAY)
     ");
     $stmt2->execute();
     $deletedMeltwater = $stmt2->rowCount();
@@ -64,7 +64,7 @@ try {
     // 3. Limpiar registros de covers muy antiguos (más de 7 días)
     $stmt3 = $pdo->prepare("
         DELETE FROM covers 
-        WHERE scraped_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
+        WHERE indexed_date < DATE_SUB(NOW(), INTERVAL 7 DAY)
     ");
     $stmt3->execute();
     $deletedCovers = $stmt3->rowCount();

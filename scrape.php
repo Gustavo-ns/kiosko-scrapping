@@ -121,6 +121,15 @@ $lastScrapeDate = $stmt->fetchColumn() ?: '2000-01-01';
 $hoy = date('Y-m-d');
 if ($lastScrapeDate !== $hoy) {
     echo "Iniciando scraping (última fecha: $lastScrapeDate)...\n";
+    
+    // Si la última fecha es de ayer, limpiar la tabla covers
+    $ayer = date('Y-m-d', strtotime('-1 day'));
+    if ($lastScrapeDate === $ayer) {
+        error_log("Limpiando tabla covers porque la última fecha de scraping es de ayer");
+        $pdo->exec("TRUNCATE TABLE covers");
+        echo "Tabla covers limpiada.\n";
+    }
+    
     $update = $pdo->prepare("REPLACE INTO configs (name, value) VALUES ('last_scrape_date', :fecha)");
     $update->execute([':fecha' => $hoy]);
 }
@@ -295,22 +304,20 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
 
         try {
             $ins = $pdo->prepare("INSERT INTO covers(
-                country, title, image_url, source, original_link, 
-                preview_url, thumbnail_url, original_url, 
-                created_at, updated_at, scraped_at
+                country, title, source, original_link, 
+                thumbnail_url, original_url, 
+                created_at
             ) VALUES(
-                :c, :t, :i, :s, :l, 
-                :pr, :th, :or,
-                NOW(), NOW(), NOW()
+                :c, :t, :s, :l, 
+                :th, :or,
+                NOW()
             )");
             
             $params = [
                 ':c' => $country, 
                 ':t' => $alt, 
-                ':i' => $imageResult['thumbnail'],
                 ':s' => $sourceLink, 
                 ':l' => $urlImg,
-                ':pr' => $imageResult['preview'],
                 ':th' => $imageResult['thumbnail'],
                 ':or' => $imageResult['original']
             ];
@@ -326,17 +333,16 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
             if (strpos($e->getMessage(), 'created_at') !== false) {
                 error_log("Fallback: usando estructura antigua sin timestamps para $sourceLink");
                 $ins_fallback = $pdo->prepare("INSERT INTO covers(
-                    country, title, image_url, source, original_link, 
-                    thumbnail_url, original_url, scraped_at
+                    country, title, source, original_link, 
+                    thumbnail_url, original_url
                 ) VALUES(
-                    :c, :t, :i, :s, :l, 
-                    :th, :or, NOW()
+                    :c, :t, :s, :l, 
+                    :th, :or
                 )");
                 
                 $ins_fallback->execute([
                     ':c' => $country, 
                     ':t' => $alt, 
-                    ':i' => $imageResult['thumbnail'],
                     ':s' => $sourceLink, 
                     ':l' => $urlImg,
                     ':th' => $imageResult['thumbnail'],
@@ -564,28 +570,3 @@ foreach ($config['sites'] as $country => $configs) {
 
 $end = microtime(true);
 echo "\nScraping finalizado a las " . date('H:i:s') . ". Duración: " . round($end - $start, 2) . "s\n";
-
-// Procesar portadas después del scraping
-if (file_exists(__DIR__ . '/process_portadas.php')) {
-    echo "\nIniciando procesamiento de portadas...\n";
-    $process_start = microtime(true);
-    
-    ob_start();
-    $result = include __DIR__ . '/process_portadas.php';
-    $output = ob_get_clean();
-    
-    if ($result === false) {
-        echo "Error procesando portadas\n";
-        error_log("Error procesando portadas después del scraping");
-    } else {
-        $process_end = microtime(true);
-        echo "Procesamiento de portadas completado en " . round($process_end - $process_start, 2) . "s\n";
-    }
-    
-    if (trim($output)) {
-        echo "Salida del procesamiento de portadas:\n" . trim($output) . "\n";
-    }
-} else {
-    echo "\nprocess_portadas.php no encontrado\n";
-    error_log("process_portadas.php no encontrado después del scraping");
-}

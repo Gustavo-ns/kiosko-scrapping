@@ -158,11 +158,18 @@ try {
             m.pais,
             m.dereach,
             m.visualizar,
-            pk.published_date
+            pk.published_date,
+            pk.indexed_date
         FROM pk_melwater pk
         INNER JOIN medios m ON m.twitter_id = pk.external_id
         WHERE m.visualizar = 1 AND m.grupo IS NOT NULL
-        AND pk.published_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        AND pk.indexed_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        AND NOT EXISTS (
+            SELECT 1 FROM temp_portadas p 
+            WHERE p.external_id = pk.external_id 
+            AND p.indexed_date = pk.indexed_date
+            AND p.source_type = 'meltwater'
+        )
     ";
     $stmt = $pdo->query($sql);
     $melwater_rows = $stmt->fetchAll();
@@ -189,23 +196,23 @@ try {
         // Preparar la consulta SQL según si existen las columnas de timestamp
         if ($has_timestamps) {
             $insert = $pdo->prepare("INSERT INTO temp_portadas (
-                title, grupo, pais, published_date, dereach, 
+                title, grupo, pais, published_date, indexed_date, dereach, 
                 source_type, external_id, visualizar, 
                 original_url, thumbnail_url, 
                 created_at, updated_at
             ) VALUES (
-                :title, :grupo, :pais, :published_date, :dereach, 
+                :title, :grupo, :pais, :published_date, :indexed_date, :dereach, 
                 'meltwater', :external_id, :visualizar, 
                 :original_url, :thumbnail_url,
                 NOW(), NOW()
             )");
         } else {
             $insert = $pdo->prepare("INSERT INTO temp_portadas (
-                title, grupo, pais, published_date, dereach, 
+                title, grupo, pais, published_date, indexed_date, dereach, 
                 source_type, external_id, visualizar, 
                 original_url, thumbnail_url
             ) VALUES (
-                :title, :grupo, :pais, :published_date, :dereach, 
+                :title, :grupo, :pais, :published_date, :indexed_date, :dereach, 
                 'meltwater', :external_id, :visualizar, 
                 :original_url, :thumbnail_url
             )");
@@ -216,6 +223,7 @@ try {
             'grupo' => $row['grupo'],
             'pais' => $row['pais'],
             'published_date' => $row['published_date'],
+            'indexed_date' => $row['indexed_date'],
             'dereach' => $row['dereach'],
             'external_id' => $row['external_id'],
             'visualizar' => $row['visualizar'],

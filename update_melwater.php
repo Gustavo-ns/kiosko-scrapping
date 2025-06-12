@@ -48,6 +48,10 @@ try {
         $dataUrl = end($scheduledUrls);
     }
 
+    // Log de la URL que se está utilizando
+    error_log("Hora actual: " . $currentHour);
+    error_log("URL de Meltwater seleccionada: " . $dataUrl);
+
     // Obtener los datos del JSON
     $response = file_get_contents($dataUrl);
     if ($response === FALSE) {
@@ -59,17 +63,46 @@ try {
         throw new Exception("No se encontraron documentos en la respuesta.");
     }
 
+    // Limpiar la tabla portadas antes de insertar nuevos datos
+    try {
+        $pdo->beginTransaction();
+        
+        // Obtener la fecha de inicio (ayer a las 18hs)
+        $startDate = new DateTime();
+        $startDate->setTime(18, 0, 0);
+        $startDate->modify('-1 day');
+        $startDateStr = $startDate->format('Y-m-d H:i:s');
+        
+        // Eliminar registros desde ayer a las 18hs hasta ahora
+        $deleteStmt = $pdo->prepare("
+            DELETE FROM portadas 
+            WHERE published_date >= :start_date 
+            AND published_date <= NOW()
+        ");
+        $deleteStmt->execute([':start_date' => $startDateStr]);
+        
+        $deletedCount = $deleteStmt->rowCount();
+        error_log("Se eliminaron {$deletedCount} registros antiguos de la tabla portadas");
+        
+        $pdo->commit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Error al limpiar la tabla portadas: " . $e->getMessage());
+        throw new Exception("Error al limpiar la tabla portadas: " . $e->getMessage());
+    }
+
     // Preparar la consulta de inserción
     $stmt = $pdo->prepare("INSERT INTO pk_melwater (
-        external_id, published_date, source_id, social_network, 
+        external_id, published_date, indexed_date, source_id, social_network, 
         country_code, country_name, author_name, content_image, 
         content_text, url_destino, input_names
     ) VALUES (
-        :external_id, :published_date, :source_id, :social_network,
+        :external_id, :published_date, :indexed_date, :source_id, :social_network,
         :country_code, :country_name, :author_name, :content_image,
         :content_text, :url_destino, :input_names
     ) ON DUPLICATE KEY UPDATE
         published_date = VALUES(published_date),
+        indexed_date = VALUES(indexed_date),
         source_id = VALUES(source_id),
         social_network = VALUES(social_network),
         country_code = VALUES(country_code),
@@ -111,6 +144,17 @@ try {
         $external_id = isset($doc['author']['external_id']) ? $doc['author']['external_id'] : '';
         $published_date = isset($doc['published_date']) ? $doc['published_date'] : '';
         $source_id = isset($doc['source']['id']) ? $doc['source']['id'] : '';
+
+        // Verificar si el registro ya existe
+        $checkStmt = $pdo->prepare("SELECT 1 FROM pk_melwater WHERE external_id = :external_id");
+        $checkStmt->execute([':external_id' => $external_id]);
+        $exists = $checkStmt->fetchColumn();
+        
+        if ($exists) {
+            error_log("Registro con external_id {$external_id} ya existe, actualizando...");
+        } else {
+            error_log("Nuevo registro con external_id {$external_id}, insertando...");
+        }
         
         // Procesar la imagen si existe
         if ($content_image && $external_id) {
@@ -199,18 +243,34 @@ try {
         $input_names_str = implode(', ', $input_names);
 
         try {
+            // Convertir la fecha de publicación
+            $published_date = new DateTime($doc['published_date']);
+            $published_date->setTimezone(new DateTimeZone('America/Argentina/Buenos_Aires'));
+            
+            // Convertir la fecha de indexación si existe
+            $indexed_date = null;
+            if (isset($doc['indexed_date'])) {
+                $indexed_date = new DateTime($doc['indexed_date']);
+                $indexed_date->setTimezone(new DateTimeZone('America/Argentina/Buenos_Aires'));
+                $indexed_date_str = $indexed_date->format('Y-m-d H:i:s');
+            } else {
+                $indexed_date_str = null;
+            }
+
+            // Ejecutar la inserción
             $stmt->execute([
-                ':external_id' => $external_id,
-                ':published_date' => $published_date,
-                ':source_id' => $source_id,
-                ':social_network' => $social_network,
-                ':country_code' => $country_code,
-                ':country_name' => $country_name,
-                ':author_name' => $author_name,
-                ':content_image' => $content_image,
-                ':content_text' => $content_text,
-                ':url_destino' => $url_destino,
-                ':input_names' => $input_names_str
+                'external_id' => $external_id,
+                'published_date' => $published_date->format('Y-m-d H:i:s'),
+                'indexed_date' => $indexed_date_str,
+                'source_id' => $source_id,
+                'social_network' => $social_network,
+                'country_code' => $country_code,
+                'country_name' => $country_name,
+                'author_name' => $author_name,
+                'content_image' => $content_image,
+                'content_text' => $content_text,
+                'url_destino' => $url_destino,
+                'input_names' => $input_names_str
             ]);
             $updatedCount++;
         } catch (PDOException $e) {
@@ -226,15 +286,29 @@ try {
 
     // Llamar a process_portadas.php para actualizar la tabla portadas
     try {
-        $process_portadas_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/process_portadas.php";
-        $response = file_get_contents($process_portadas_url);
-        if ($response === FALSE) {
-            throw new Exception("Error al llamar a process_portadas.php");
+        $process_portadas_path = __DIR__ . '/process_portadas.php';
+        if (!file_exists($process_portadas_path)) {
+            throw new Exception("No se encontró el archivo process_portadas.php");
         }
+        
+        // Ejecutar el script directamente
+        $command = "php " . escapeshellarg($process_portadas_path);
+        $output = [];
+        $return_var = 0;
+        exec($command, $output, $return_var);
+        
+        if ($return_var !== 0) {
+            throw new Exception("Error al ejecutar process_portadas.php");
+        }
+        
+        $response = implode("\n", $output);
         $result = json_decode($response, true);
-        if (!$result['success']) {
-            throw new Exception("Error en process_portadas.php: " . $result['message']);
+        
+        if (!$result || !isset($result['success']) || !$result['success']) {
+            $error_message = isset($result['message']) ? $result['message'] : 'Error desconocido';
+            throw new Exception("Error en process_portadas.php: " . $error_message);
         }
+        
         error_log("Tabla portadas actualizada correctamente a través de process_portadas.php");
     } catch (Exception $e) {
         error_log("Error al actualizar tabla portadas: " . $e->getMessage());

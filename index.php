@@ -58,7 +58,7 @@ try {
         WHERE published_date >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 18:00:00')
         AND published_date <= NOW()
         AND published_date IS NOT NULL
-        ORDER BY published_date DESC
+        ORDER BY grupo ASC, pais ASC, dereach DESC
     ");
     $documents = $stmt->fetchAll();
 
@@ -717,14 +717,22 @@ ob_start();
         <link rel="stylesheet" href="styles.css?v=<?= ASSETS_VERSION ?>">
     </noscript>
 
-    <!-- Preload de la primera imagen crítica -->
-    <?php if (!empty($filtered_documents)): 
+    <!-- Preload de la primera imagen crítica para LCP
+    if (!empty($filtered_documents)) {
         $first_doc = reset($filtered_documents);
-        $first_image_url = isset($first_doc['thumbnail_url']) ? $first_doc['thumbnail_url'] : '';
-        if ($first_image_url): ?>
-            <link rel="preload" as="image" href="<?= htmlspecialchars($first_image_url) ?>?v=<?= ASSETS_VERSION ?>" fetchpriority="high">
-        <?php endif;
-    endif; ?>
+        $first_thumbnail_url = '';
+        
+        if (isset($first_doc['source_type']) && $first_doc['source_type'] === 'meltwater' && isset($first_doc['external_id'])) {
+            $first_thumbnail_url = "images/melwater/previews/{$first_doc['external_id']}_preview.webp";
+        } elseif (isset($first_doc['thumbnail_url'])) {
+            $first_thumbnail_url = $first_doc['thumbnail_url'];
+        }
+        
+        if ($first_thumbnail_url) {
+            echo '<link rel="preload" as="image" href="' . htmlspecialchars($first_thumbnail_url) . '?v=' . ASSETS_VERSION . '" fetchpriority="high">';
+        }
+    }
+    -->
 
     <title>Portadas de Periódicos</title>
 </head>
@@ -851,9 +859,16 @@ ob_start();
             // Preload de la primera imagen crítica para LCP
             if (!empty($filtered_documents)) {
                 $first_doc = reset($filtered_documents);
-                $first_image_url = isset($first_doc['original_url']) ? $first_doc['original_url'] : '';
-                if ($first_image_url) {
-                    echo '<link rel="preload" as="image" href="' . htmlspecialchars($first_image_url) . '?v=' . ASSETS_VERSION . '" fetchpriority="high">';
+                $first_thumbnail_url = '';
+                
+                if (isset($first_doc['source_type']) && $first_doc['source_type'] === 'meltwater' && isset($first_doc['external_id'])) {
+                    $first_thumbnail_url = "images/melwater/previews/{$first_doc['external_id']}_preview.webp";
+                } elseif (isset($first_doc['thumbnail_url'])) {
+                    $first_thumbnail_url = $first_doc['thumbnail_url'];
+                }
+                
+                if ($first_thumbnail_url) {
+                    echo '<link rel="preload" as="image" href="' . htmlspecialchars($first_thumbnail_url) . '?v=' . ASSETS_VERSION . '" fetchpriority="high">';
                 }
             }
 
@@ -1169,6 +1184,50 @@ ob_start();
                     imageObserver.observe(img);
                 });
             }
+
+            // Agregar preload para imágenes críticas
+            const preloadImages = () => {
+                const images = document.querySelectorAll('.card img[data-original]');
+                let loadedThumbnails = 0;
+                const totalImages = images.length;
+
+                // Función para cargar miniaturas
+                const loadThumbnails = () => {
+                    images.forEach(img => {
+                        if (img.src && !img.dataset.thumbnailLoaded) {
+                            const link = document.createElement('link');
+                            link.rel = 'preload';
+                            link.as = 'image';
+                            link.href = img.src;
+                            document.head.appendChild(link);
+                            img.dataset.thumbnailLoaded = 'true';
+                            loadedThumbnails++;
+
+                            // Cuando todas las miniaturas estén cargadas, comenzar con las originales
+                            if (loadedThumbnails === totalImages) {
+                                loadOriginals();
+                            }
+                        }
+                    });
+                };
+
+                // Función para cargar imágenes originales
+                const loadOriginals = () => {
+                    images.forEach(img => {
+                        if (img.dataset.original && !img.dataset.originalLoaded) {
+                            const link = document.createElement('link');
+                            link.rel = 'preload';
+                            link.as = 'image';
+                            link.href = img.dataset.original;
+                            document.head.appendChild(link);
+                            img.dataset.originalLoaded = 'true';
+                        }
+                    });
+                };
+
+                // Iniciar con las miniaturas
+                loadThumbnails();
+            };
         });
 
         // Función para forzar recarga (testing)
