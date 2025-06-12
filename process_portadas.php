@@ -247,13 +247,11 @@ try {
             m.pais,
             m.dereach,
             m.visualizar,
-            c.scraped_at AS published_date,
             c.original_url AS original_url,
             c.thumbnail_url AS thumbnail_url
         FROM covers c
         INNER JOIN medios m ON m.source = c.source
         WHERE m.visualizar = 1 AND m.grupo IS NOT NULL
-        AND c.scraped_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
     ";
     $stmt = $pdo->query($sql);
     $cover_rows = $stmt->fetchAll();
@@ -279,7 +277,7 @@ try {
             'title' => mb_substr($row['medio_title'], 0, 255),
             'grupo' => $row['grupo'],
             'pais' => $row['pais'],
-            'published_date' => $row['published_date'],
+            'published_date' => date('Y-m-d H:i:s'),
             'dereach' => $row['dereach'],
             'external_id' => $row['external_id'],
             'visualizar' => $row['visualizar'],
@@ -412,6 +410,37 @@ try {
             }
         }
         logMessage("Limpieza de archivos temporales completada");
+    }
+
+    // Limpiar archivos no usados en images/covers y subcarpetas
+    $covers_dirs = [
+        __DIR__ . '/images/covers',
+        __DIR__ . '/images/covers/thumbnails',
+        __DIR__ . '/images/covers/previews'
+    ];
+    // Obtener todos los nombres de archivos en uso en la tabla covers
+    $stmt = $pdo->query("SELECT original_url, thumbnail_url FROM covers");
+    $used_files = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        foreach (['original_url', 'thumbnail_url'] as $col) {
+            if (!empty($row[$col])) {
+                $used_files[] = basename($row[$col]);
+            }
+        }
+    }
+    foreach ($covers_dirs as $dir) {
+        if (is_dir($dir)) {
+            $files = glob($dir . '/*');
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    $filename = basename($file);
+                    if (!in_array($filename, $used_files)) {
+                        unlink($file);
+                        logMessage("Archivo de covers eliminado: $filename");
+                    }
+                }
+            }
+        }
     }
 
     header('Content-Type: application/json');

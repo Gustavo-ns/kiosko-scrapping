@@ -25,11 +25,12 @@ try {
 
     // URLs específicas para cada horario
     $scheduledUrls = [
-        '6:30' => 'https://downloads.exports.meltwater.com/v3/recurring/13742063?data_key=3f4aed98-80fe-3fb1-9cf0-ce4681a26d7c',
-        '7:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13820798?data_key=99180c35-19a8-3b35-8ae7-368a020d3f60',
-        '8:30' => 'https://downloads.exports.meltwater.com/v3/recurring/13841083?data_key=1590e1c0-0060-3ce6-af3b-431a90b5e3e4',
-        '9:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13869250?data_key=262188f9-da14-3148-b734-e071ee3d9f7e',
-        '10:35' => 'https://downloads.exports.meltwater.com/v3/recurring/13869241?data_key=7481954f-4c7c-34c4-89e8-59b79b063ae7'
+        '06:10' => 'https://downloads.exports.meltwater.com/v3/recurring/13961606?data_key=e2ca54bc-20f8-367a-b550-0ab225b41bb9',
+        '06:45' => 'https://downloads.exports.meltwater.com/v3/recurring/13961613?data_key=4e5adc6f-6f70-3ead-9b00-54d9b52f1bc5',
+        '07:15' => 'https://downloads.exports.meltwater.com/v3/recurring/13961617?data_key=1a6493d3-6f3f-304f-a4a8-9cb79092b6d9',
+        '08:00' => 'https://downloads.exports.meltwater.com/v3/recurring/13961632?data_key=81f0dd53-1776-390a-839d-db13834d6e0a',
+        '09:00' => 'https://downloads.exports.meltwater.com/v3/recurring/13961639?data_key=86e1afbc-aba6-36fb-b470-a86573ea1a52',
+        '10:00' => 'https://downloads.exports.meltwater.com/v3/recurring/13961644?data_key=99cf4e6a-c04a-34a2-9f27-ffd950971fd0'
     ];
 
     // Obtener la hora actual
@@ -93,24 +94,15 @@ try {
 
     // Preparar la consulta de inserción
     $stmt = $pdo->prepare("INSERT INTO pk_melwater (
-        external_id, published_date, indexed_date, source_id, social_network, 
-        country_code, country_name, author_name, content_image, 
-        content_text, url_destino, input_names
+        external_id, published_date, indexed_date, 
+        content_image, input_names
     ) VALUES (
-        :external_id, :published_date, :indexed_date, :source_id, :social_network,
-        :country_code, :country_name, :author_name, :content_image,
-        :content_text, :url_destino, :input_names
+        :external_id, :published_date, :indexed_date,
+        :content_image, :input_names
     ) ON DUPLICATE KEY UPDATE
         published_date = VALUES(published_date),
         indexed_date = VALUES(indexed_date),
-        source_id = VALUES(source_id),
-        social_network = VALUES(social_network),
-        country_code = VALUES(country_code),
-        country_name = VALUES(country_name),
-        author_name = VALUES(author_name),
         content_image = VALUES(content_image),
-        content_text = VALUES(content_text),
-        url_destino = VALUES(url_destino),
         input_names = VALUES(input_names)");
 
     $country_names = [
@@ -135,15 +127,9 @@ try {
 
     $updatedCount = 0;
     foreach ($data['documents'] as $doc) {
-        $author_name = isset($doc['author']['name']) ? $doc['author']['name'] : 'N/A';
         $content_image = isset($doc['content']['image']) ? $doc['content']['image'] : null;
-        $content_text = isset($doc['content']['opening_text']) ? $doc['content']['opening_text'] : '';
-        $country_code = strtolower(isset($doc['location']['country_code']) ? $doc['location']['country_code'] : 'zz');
-        $country_name = isset($country_names[$country_code]) ? $country_names[$country_code] : ucfirst($country_code);
-        $url_destino = isset($doc['url']) ? $doc['url'] : '#';
         $external_id = isset($doc['author']['external_id']) ? $doc['author']['external_id'] : '';
         $published_date = isset($doc['published_date']) ? $doc['published_date'] : '';
-        $source_id = isset($doc['source']['id']) ? $doc['source']['id'] : '';
 
         // Verificar si el registro ya existe
         $checkStmt = $pdo->prepare("SELECT 1 FROM pk_melwater WHERE external_id = :external_id");
@@ -224,13 +210,6 @@ try {
             error_log("Raw document data: " . print_r($doc, true));
         }
         
-        // Extraer red social del source_id
-        $social_network = '';
-        if (!empty($source_id) && strpos($source_id, 'social:') === 0) {
-            $parts = explode(':', $source_id);
-            $social_network = isset($parts[1]) ? ucfirst($parts[1]) : '';
-        }
-
         // Obtener los inputs names
         $input_names = [];
         if (isset($doc['matched']['inputs']) && is_array($doc['matched']['inputs'])) {
@@ -262,14 +241,7 @@ try {
                 'external_id' => $external_id,
                 'published_date' => $published_date->format('Y-m-d H:i:s'),
                 'indexed_date' => $indexed_date_str,
-                'source_id' => $source_id,
-                'social_network' => $social_network,
-                'country_code' => $country_code,
-                'country_name' => $country_name,
-                'author_name' => $author_name,
                 'content_image' => $content_image,
-                'content_text' => $content_text,
-                'url_destino' => $url_destino,
                 'input_names' => $input_names_str
             ]);
             $updatedCount++;

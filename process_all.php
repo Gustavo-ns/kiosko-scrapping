@@ -642,9 +642,9 @@ error_log("Documentos después de filtrar fechas: " . count($filtered_documents)
                 <p>Portadas Procesadas</p>
             </div>
             <div class="stat-card">
-                <i class="fas fa-clock"></i>
-                <h3 id="timeElapsed">0:00</h3>
-                <p>Tiempo Transcurrido</p>
+                <i class="fas fa-newspaper"></i>
+                <h3 id="totalCount">0</h3>
+                <p>Total Registros</p>
             </div>
         </div>
         
@@ -922,9 +922,28 @@ error_log("Documentos después de filtrar fechas: " . count($filtered_documents)
         }
 
         // Función para agregar logs desde PHP
-        function addLogFromPHP(message, type = 'info') {
+        function addLogFromPHP(message, type) {
             addLogEntry(message, type);
         }
+
+        // Función para actualizar estadísticas
+        function updateStats() {
+            fetch('get_stats.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('meltwaterCount').textContent = data.meltwater;
+                        document.getElementById('coversCount').textContent = data.covers;
+                        document.getElementById('totalCount').textContent = data.total;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Actualizar estadísticas cada 5 segundos
+        setInterval(updateStats, 5000);
+        // Actualizar inmediatamente al cargar
+        updateStats();
     </script>
 </body>
 </html>
