@@ -101,8 +101,12 @@ function getPDO() {
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::ATTR_PERSISTENT => false, // Desactivar conexiones persistentes
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true
             ]);
             $pdo->exec("SET NAMES utf8mb4");
+            $pdo->exec("SET SESSION wait_timeout=60"); // Reducir el tiempo de espera de la sesión
+            $pdo->exec("SET SESSION interactive_timeout=60");
         } catch (PDOException $e) {
             error_log("Error de conexión a la base de datos: " . $e->getMessage());
             throw $e;
@@ -110,6 +114,17 @@ function getPDO() {
     }
     return $pdo;
 }
+
+// Función para cerrar la conexión explícitamente
+function closePDO() {
+    global $pdo;
+    if ($pdo !== null) {
+        $pdo = null;
+    }
+}
+
+// Registrar la función de cierre para que se ejecute al finalizar el script
+register_shutdown_function('closePDO');
 
 $pdo = getPDO();
 
@@ -171,14 +186,15 @@ function checkImageMagickSupport() {
 }
 
 function saveImageLocally($imageUrl, $country, $alt) {
-    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid();
+    // Generar nombre de archivo con número aleatorio
+    $random_number = mt_rand(1000, 9999);
+    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . $random_number;
     error_log("Iniciando guardado de imagen - URL: $imageUrl, País: $country, Alt: $alt");
     
     // Crear estructura de directorios como Meltwater
     $upload_dir = __DIR__ . '/images/covers';
     $thumb_dir = $upload_dir . '/thumbnails';
-    $preview_dir = $upload_dir . '/previews';
-    foreach ([$upload_dir, $thumb_dir, $preview_dir] as $dir) {
+    foreach ([$upload_dir, $thumb_dir] as $dir) {
         if (!file_exists($dir)) {
             if (!mkdir($dir, 0755, true)) {
                 error_log("Error al crear directorio: $dir");
@@ -209,22 +225,18 @@ function saveImageLocally($imageUrl, $country, $alt) {
         // Definir rutas de archivos
         $original_filename = $filename . '_original.webp';
         $thumb_filename = $filename . '_thumb.webp';
-        $preview_filename = $filename . '_preview.webp';
         $original_filepath = $upload_dir . '/' . $original_filename;
         $thumb_filepath = $thumb_dir . '/' . $thumb_filename;
-        $preview_filepath = $preview_dir . '/' . $preview_filename;
 
         error_log("Rutas de archivos definidas:");
         error_log("- Original: $original_filepath");
         error_log("- Thumbnail: $thumb_filepath");
-        error_log("- Preview: $preview_filepath");
 
         // Si ya existen todos los archivos, devolverlos
-        if (file_exists($original_filepath) && file_exists($thumb_filepath) && file_exists($preview_filepath)) {
+        if (file_exists($original_filepath) && file_exists($thumb_filepath)) {
             error_log("Archivos ya existen, retornando rutas existentes");
             unlink($tempFile);
             return [
-                'preview' => 'images/covers/previews/' . $preview_filename,
                 'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
                 'original' => 'images/covers/' . $original_filename
             ];
@@ -246,19 +258,10 @@ function saveImageLocally($imageUrl, $country, $alt) {
             return false;
         }
 
-        // Crear preview
-        error_log("Convirtiendo a WebP - Preview");
-        if (!convertToWebP($tempFile, $preview_filepath, 40, 320, 480)) {
-            error_log("Error al convertir preview a WebP");
-            unlink($tempFile);
-            return false;
-        }
-
         unlink($tempFile);
         error_log("Imagen procesada exitosamente");
         
         return [
-            'preview' => 'images/covers/previews/' . $preview_filename,
             'thumbnail' => 'images/covers/thumbnails/' . $thumb_filename,
             'original' => 'images/covers/' . $original_filename
         ];

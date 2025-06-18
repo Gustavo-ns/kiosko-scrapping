@@ -888,13 +888,9 @@ ob_start();
                 $thumbnail_url = '';
                 $original_url = '';
                 
-                if ($source_type === 'meltwater' && $external_id) {
-                    $thumbnail_url = "images/melwater/previews/{$external_id}_preview.webp";
-                    $original_url = "images/melwater/{$external_id}_original.webp";
-                } elseif ($source_type === 'cover') {
                     $thumbnail_url = isset($doc['thumbnail_url']) ? $doc['thumbnail_url'] : '';
                     $original_url = isset($doc['original_url']) ? $doc['original_url'] : '';
-                }
+                
                 
                 if (empty($thumbnail_url) || empty($title)) continue;
                 
@@ -948,11 +944,6 @@ ob_start();
                         <?php if ($pais): ?>
                             <small class="medio-info">
                                 <?= $pais ?>
-                            </small>
-                        <?php endif; ?>
-                        <?php if ($published_date): ?>
-                            <small>
-                            <?= date('j \d\e F \d\e\l Y, H:i', strtotime($published_date)) ?> hs
                             </small>
                         <?php endif; ?>
                     </div>

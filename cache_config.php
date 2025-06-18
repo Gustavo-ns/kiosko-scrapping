@@ -1,11 +1,37 @@
 <?php
-// Versión de los assets para control de caché
-define('ASSETS_VERSION', '1.0.13');
+// Cargar configuración de la base de datos
+$cfg = require 'config.php';
 
-// Tiempos de caché en segundos
-define('CACHE_TIME_IMAGES', 86400);    // 1 día
-define('CACHE_TIME_STATIC', 86400);     // 1 día
-define('CACHE_TIME_DATA', 0);            // Sin caché para datos dinámicos
+try {
+    // Conexión a la base de datos
+    $pdo = new PDO(
+        "mysql:host={$cfg['db']['host']};dbname={$cfg['db']['name']};charset={$cfg['db']['charset']}",
+        $cfg['db']['user'],
+        $cfg['db']['pass'],
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+        ]
+    );
+
+    // Obtener configuración de caché desde la base de datos
+    $stmt = $pdo->query("SELECT name, value FROM configs WHERE name IN ('assets_version', 'cache_time_images', 'cache_time_static', 'cache_time_data')");
+    $configs = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    // Definir constantes con valores por defecto si no existen en la base de datos
+    define('ASSETS_VERSION', isset($configs['assets_version']) ? $configs['assets_version'] : '1.0.13');
+    define('CACHE_TIME_IMAGES', (int)(isset($configs['cache_time_images']) ? $configs['cache_time_images'] : 86400));    // 1 día
+    define('CACHE_TIME_STATIC', (int)(isset($configs['cache_time_static']) ? $configs['cache_time_static'] : 86400));     // 1 día
+    define('CACHE_TIME_DATA', (int)(isset($configs['cache_time_data']) ? $configs['cache_time_data'] : 0));            // Sin caché para datos dinámicos
+
+} catch (PDOException $e) {
+    // En caso de error, usar valores por defecto
+    define('ASSETS_VERSION', '1.0.13');
+    define('CACHE_TIME_IMAGES', 86400);    // 1 día
+    define('CACHE_TIME_STATIC', 86400);     // 1 día
+    define('CACHE_TIME_DATA', 0);            // Sin caché para datos dinámicos
+    error_log("Error al cargar configuración de caché desde la base de datos: " . $e->getMessage());
+}
 
 /**
  * Establece los headers de caché según el tipo de contenido
@@ -71,4 +97,32 @@ function serveContentWithCache($content, $content_type = 'data') {
     
     setHeadersForContentType($content_type);
     return $content;
+}
+
+/**
+ * Actualiza la configuración de caché en la base de datos
+ * @param array $config Array con la configuración a actualizar
+ * @return bool True si la actualización fue exitosa
+ */
+function updateCacheConfig($config) {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        foreach ($config as $name => $value) {
+            $stmt = $pdo->prepare("REPLACE INTO configs (name, value) VALUES (:name, :value)");
+            $stmt->execute([
+                ':name' => $name,
+                ':value' => (string)$value
+            ]);
+        }
+        
+        $pdo->commit();
+        return true;
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Error al actualizar configuración de caché: " . $e->getMessage());
+        return false;
+    }
 } 

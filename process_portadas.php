@@ -159,7 +159,9 @@ try {
             m.dereach,
             m.visualizar,
             pk.published_date,
-            pk.indexed_date
+            pk.indexed_date,
+            pk.content_image,
+            pk.preview_image
         FROM pk_melwater pk
         INNER JOIN medios m ON m.twitter_id = pk.external_id
         WHERE m.visualizar = 1 AND m.grupo IS NOT NULL
@@ -178,9 +180,9 @@ try {
         $key = mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach'] . '|meltwater';
         if (isset($inserted_keys[$key])) continue;
         
-        // Corregir el formato de las URLs de las imágenes
-        $original_url = 'images/melwater/' . $row['external_id'] . '_original.webp';
-        $thumbnail_url = 'images/melwater/previews/' . $row['external_id'] . '_preview.webp';
+        // Usar las URLs de imágenes de la base de datos
+        $original_url = $row['content_image'];
+        $thumbnail_url = $row['preview_image'];
         
         // Verificar que los archivos existan antes de insertar
         $original_path = __DIR__ . '/' . $original_url;
@@ -386,13 +388,21 @@ try {
     // Limpiar solo archivos temporales en el directorio de Meltwater
     $melwater_dir = __DIR__ . '/images/melwater';
     if (is_dir($melwater_dir)) {
-        // Obtener lista de archivos originales que están en uso
+        // Obtener lista de archivos que están en uso en portadas
         $stmt = $pdo->query("SELECT external_id FROM portadas WHERE source_type = 'meltwater'");
         $active_files = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Obtener lista de archivos que están en uso en pk_melwater
+        $stmt = $pdo->query("SELECT external_id FROM pk_melwater");
+        $pk_files = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Combinar ambas listas
+        $active_files = array_unique(array_merge($active_files, $pk_files));
         
         // Crear un array de nombres de archivos que deben mantenerse
         $keep_files = [];
         foreach ($active_files as $external_id) {
+            // Mantener archivos con el formato correcto
             $keep_files[] = $external_id . '_original.webp';
             $keep_files[] = $external_id . '_preview.webp';
         }
@@ -402,10 +412,43 @@ try {
         foreach ($files as $file) {
             if (is_file($file)) {
                 $filename = basename($file);
-                // Solo borrar si no está en la lista de archivos a mantener
-                if (!in_array($filename, $keep_files)) {
-                    unlink($file);
-                    logMessage("Archivo temporal eliminado: $filename");
+                
+                // Verificar si el archivo tiene el formato correcto
+                if (preg_match('/^(\d+)_\d+_(original|preview)\.webp$/', $filename, $matches)) {
+                    $external_id = $matches[1];
+                    $type = $matches[2];
+                    
+                    // Solo eliminar si:
+                    // 1. No está en la lista de archivos a mantener
+                    // 2. No está en uso en ninguna tabla
+                    // 3. Tiene más de 24 horas de antigüedad
+                    if (!in_array($filename, $keep_files)) {
+                        $file_age = time() - filemtime($file);
+                        if ($file_age > 86400) { // 24 horas en segundos
+                            // Verificar una última vez que no está en uso
+                            $stmt = $pdo->prepare("
+                                SELECT 1 FROM portadas 
+                                WHERE source_type = 'meltwater' 
+                                AND external_id = :external_id
+                                UNION
+                                SELECT 1 FROM pk_melwater 
+                                WHERE external_id = :external_id
+                            ");
+                            $stmt->execute([':external_id' => $external_id]);
+                            if ($stmt->rowCount() == 0) {
+                                unlink($file);
+                                logMessage("Archivo temporal eliminado (más de 24 horas y no en uso): $filename");
+                            } else {
+                                logMessage("Archivo encontrado en uso (no eliminado): $filename");
+                            }
+                        } else {
+                            logMessage("Archivo temporal encontrado (menos de 24 horas): $filename");
+                        }
+                    } else {
+                        logMessage("Archivo activo encontrado (no eliminado): $filename");
+                    }
+                } else {
+                    logMessage("Archivo con formato incorrecto encontrado (no eliminado): $filename");
                 }
             }
         }
@@ -418,9 +461,12 @@ try {
         __DIR__ . '/images/covers/thumbnails',
         __DIR__ . '/images/covers/previews'
     ];
-    // Obtener todos los nombres de archivos en uso en la tabla covers
-    $stmt = $pdo->query("SELECT original_url, thumbnail_url FROM covers");
+    
+    // Obtener todos los nombres de archivos en uso
     $used_files = [];
+    
+    // Archivos en uso en la tabla covers
+    $stmt = $pdo->query("SELECT original_url, thumbnail_url FROM covers");
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         foreach (['original_url', 'thumbnail_url'] as $col) {
             if (!empty($row[$col])) {
@@ -428,15 +474,35 @@ try {
             }
         }
     }
+    
+    // Archivos en uso en la tabla portadas
+    $stmt = $pdo->query("SELECT original_url, thumbnail_url FROM portadas WHERE source_type = 'cover'");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        foreach (['original_url', 'thumbnail_url'] as $col) {
+            if (!empty($row[$col])) {
+                $used_files[] = basename($row[$col]);
+            }
+        }
+    }
+    
+    $used_files = array_unique($used_files);
+    
     foreach ($covers_dirs as $dir) {
         if (is_dir($dir)) {
             $files = glob($dir . '/*');
             foreach ($files as $file) {
                 if (is_file($file)) {
                     $filename = basename($file);
-                    if (!in_array($filename, $used_files)) {
+                    $file_age = time() - filemtime($file);
+                    
+                    // Solo eliminar si:
+                    // 1. No está en la lista de archivos en uso
+                    // 2. Tiene más de 24 horas de antigüedad
+                    if (!in_array($filename, $used_files) && $file_age > 86400) {
                         unlink($file);
-                        logMessage("Archivo de covers eliminado: $filename");
+                        logMessage("Archivo de covers eliminado (más de 24 horas y no en uso): $filename");
+                    } else {
+                        logMessage("Archivo de covers encontrado (no eliminado): $filename");
                     }
                 }
             }

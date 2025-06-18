@@ -101,14 +101,24 @@ function executeProcess($processName, $scriptPath) {
 
 // Obtener los datos unificados de la tabla portadas
 $stmt = $pdo->query("
-    SELECT *
-    FROM portadas
-    WHERE published_date >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 18:00:00')
-    AND published_date <= NOW()
-    AND published_date IS NOT NULL
-    ORDER BY published_date DESC
+    SELECT p.*, m.preview_image as melwater_preview
+    FROM portadas p
+    LEFT JOIN pk_melwater m ON p.external_id = m.external_id
+    WHERE p.published_date >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 18:00:00')
+    AND p.published_date <= NOW()
+    AND p.published_date IS NOT NULL
+    ORDER BY p.published_date DESC
 ");
 $documents = $stmt->fetchAll();
+
+// Log para verificar los datos de preview_image
+foreach ($documents as $doc) {
+    if (isset($doc['melwater_preview'])) {
+        logMessage("Preview image para external_id {$doc['external_id']}: " . $doc['melwater_preview']);
+    } else {
+        logMessage("No hay preview image para external_id {$doc['external_id']}", 'WARNING');
+    }
+}
 
 // Filtrar documentos por fecha
 $now = new DateTime(); // ahora
@@ -950,6 +960,7 @@ error_log("Documentos después de filtrar fechas: " . count($filtered_documents)
 <?php
 // Ejecutar los procesos en secuencia
 $processes = [
+    ['name' => 'Limpieza de Portadas', 'script' => 'clean_covers.php'],
     ['name' => 'Actualización de Meltwater', 'script' => 'update_melwater.php'],
     ['name' => 'Scraping de Portadas', 'script' => 'scrape.php'],
     ['name' => 'Actualización de Portadas', 'script' => 'update_portadas.php']
@@ -957,6 +968,16 @@ $processes = [
 
 $success = true;
 $totalProcesses = count($processes);
+
+// Limpiar la tabla covers antes de comenzar
+try {
+    logMessage("Limpiando tabla covers...");
+    $pdo->exec("TRUNCATE TABLE covers");
+    logMessage("Tabla covers limpiada exitosamente");
+} catch (PDOException $e) {
+    logMessage("Error al limpiar la tabla covers: " . $e->getMessage(), 'ERROR');
+    $success = false;
+}
 
 foreach ($processes as $index => $process) {
     $progress = ($index / $totalProcesses) * 100;

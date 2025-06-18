@@ -33,8 +33,9 @@ function saveImageLocallyOptimized($imageUrl, $country, $alt, $options = []) {  
                  ", GD: " . ($gdWebpSupported ? 'YES' : 'NO'));
     }
     
-    // Generar nombre de archivo único
-    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . uniqid();
+    // Generar nombre de archivo único con número aleatorio
+    $random_number = mt_rand(1000, 9999);
+    $filename = preg_replace('/[^a-z0-9_\-]/i', '_', $alt) . '_' . $random_number;
     $saveDir = __DIR__ . "/images/";
     
     // Asegurar que el directorio existe
