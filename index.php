@@ -718,6 +718,8 @@ ob_start();
     </noscript>
 
     <!-- Preload de la primera imagen crítica para LCP
+    -->
+    <?php
     if (!empty($filtered_documents)) {
         $first_doc = reset($filtered_documents);
         $first_thumbnail_url = '';
@@ -732,7 +734,7 @@ ob_start();
             echo '<link rel="preload" as="image" href="' . htmlspecialchars($first_thumbnail_url) . '?v=' . ASSETS_VERSION . '" fetchpriority="high">';
         }
     }
-    -->
+    ?>
 
     <title>Portadas de Periódicos</title>
 </head>
@@ -922,7 +924,7 @@ ob_start();
                                 style="width:100%;height:auto;max-height:350px;object-fit:contain;background:#000;">
                                 Tu navegador no soporta video.
                             </video>
-                        <?php else: ?>                            
+                        <?php else: ?>
                             <!--original_url-->
                             <img loading="<?= $loading_strategy ?>" 
                                  src="<?= $thumbnail_url ?>?v=<?= ASSETS_VERSION ?>" 
@@ -936,7 +938,8 @@ ob_start();
                                  alt="<?= $title ?>" 
                                  class="progressive-image blur-on-load"
                                  onload="this.classList.add('loaded'); this.classList.remove('blur-on-load');"
-                                 onerror="this.classList.add('loaded'); this.classList.remove('blur-on-load');">
+                                 onerror="this.classList.add('loaded'); this.classList.remove('blur-on-load');">                                 
+                            <!--original_url END-->
                         <?php endif; ?>
                     </div>
                     <div class="info">
@@ -974,7 +977,7 @@ ob_start();
                 <small>Última actualización: <?= $last_update_date ?></small>
             </div>
             <button id="footerForceReloadBtn" onclick="forceReload()" class="footer-reload-btn">
-                ⚡ Recarga Forzada
+                ⚡ Actualizar
             </button>
         </div>
     </footer>
@@ -1085,6 +1088,8 @@ ob_start();
                 setTimeout(() => {
                     loadingOverlay.style.display = 'none';
                     skeletonContainer.style.display = 'none';
+                    // Cargar imágenes originales después de que todo esté listo
+                    loadOriginalImages();
                 }, 500);
             }
 
@@ -1120,9 +1125,9 @@ ob_start();
                             img.dataset.originalLoaded = 'true';
                             
                             // Añadir clase loaded después de un pequeño delay
-                            setTimeout(() => {
+                            requestAnimationFrame(() => {
                                 originalImg.classList.add('loaded');
-                            }, 50);
+                            });
                         };
                         
                         highResImg.src = originalSrc;
@@ -1154,9 +1159,9 @@ ob_start();
                                     img.dataset.originalLoaded = 'true';
                                     
                                     // Añadir clase loaded después de un pequeño delay
-                                    setTimeout(() => {
+                                    requestAnimationFrame(() => {
                                         originalImg.classList.add('loaded');
-                                    }, 50);
+                                    });
                                 };
                                 
                                 highResImg.src = originalSrc;

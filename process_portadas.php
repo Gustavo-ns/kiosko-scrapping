@@ -6,10 +6,187 @@ error_reporting(E_ALL);
 // Configurar archivo de log específico
 ini_set('error_log', __DIR__ . '/process_portadas_error.log');
 
+// Incluir procesador de imágenes
+require_once 'optimized-image-processor.php';
+require_once 'download_image.php';
+
 // Función para logging
 function logMessage($message, $type = 'INFO') {
     $date = date('Y-m-d H:i:s');
     error_log("[$date][$type] $message");
+}
+
+// Función para verificar y regenerar imágenes faltantes
+function verifyAndRegenerateImage($external_id, $source_type, $original_url = null, $thumbnail_url = null) {
+    global $pdo;
+    
+    logMessage("Verificando imágenes para external_id: {$external_id}, source_type: {$source_type}");
+    
+    // Verificar si los archivos existen
+    $original_exists = $original_url && file_exists(__DIR__ . '/' . $original_url);
+    $thumbnail_exists = $thumbnail_url && file_exists(__DIR__ . '/' . $thumbnail_url);
+    
+    if ($original_exists && $thumbnail_exists) {
+        logMessage("Imágenes existentes para {$external_id}");
+        return ['original_url' => $original_url, 'thumbnail_url' => $thumbnail_url];
+    }
+    
+    logMessage("Imágenes faltantes para {$external_id}, intentando regenerar...", 'WARNING');
+    
+    // Intentar regenerar según el tipo de fuente
+    switch ($source_type) {
+        case 'meltwater':
+            return regenerateMeltwaterImage($external_id);
+        case 'cover':
+            return regenerateCoverImage($external_id);
+        case 'resumen':
+            return regenerateResumenImage($external_id);
+        default:
+            logMessage("Tipo de fuente no soportado para regeneración: {$source_type}", 'ERROR');
+            return false;
+    }
+}
+
+// Función para regenerar imagen de Meltwater
+function regenerateMeltwaterImage($external_id) {
+    global $pdo;
+    
+    logMessage("Regenerando imagen Meltwater para {$external_id}");
+    
+    // Obtener la URL original de la imagen desde pk_melwater
+    $stmt = $pdo->prepare("SELECT content_image FROM pk_melwater WHERE external_id = :external_id");
+    $stmt->execute([':external_id' => $external_id]);
+    $row = $stmt->fetch();
+    
+    if (!$row || !$row['content_image']) {
+        logMessage("No se encontró URL de imagen para Meltwater {$external_id}", 'ERROR');
+        return false;
+    }
+    
+    // Si content_image es una URL externa, descargarla
+    if (filter_var($row['content_image'], FILTER_VALIDATE_URL)) {
+        $imageUrl = $row['content_image'];
+        
+        // Crear directorios si no existen
+        $melwater_dir = __DIR__ . '/images/melwater';
+        $previews_dir = $melwater_dir . '/previews';
+        
+        foreach ([$melwater_dir, $previews_dir] as $dir) {
+            if (!file_exists($dir)) {
+                if (!@mkdir($dir, 0755, true)) {
+                    logMessage("Error al crear directorio: {$dir}", 'ERROR');
+                    return false;
+                }
+            }
+        }
+        
+        // Generar número aleatorio para el nombre del archivo
+        $random_number = mt_rand(1000, 9999);
+        $original_filename = $external_id . '_' . $random_number . '_original.webp';
+        $preview_filename = $external_id . '_' . $random_number . '_preview.webp';
+        $original_path = $melwater_dir . '/' . $original_filename;
+        $preview_path = $previews_dir . '/' . $preview_filename;
+        
+        try {
+            // Descargar imagen
+            $image_data = @file_get_contents($imageUrl);
+            if ($image_data === false) {
+                logMessage("Error al descargar imagen desde: {$imageUrl}", 'ERROR');
+                return false;
+            }
+            
+            // Crear archivo temporal
+            $temp_file = tempnam(sys_get_temp_dir(), 'melwater_');
+            if ($temp_file === false) {
+                logMessage("No se pudo crear archivo temporal", 'ERROR');
+                return false;
+            }
+            
+            // Guardar imagen en archivo temporal
+            if (@file_put_contents($temp_file, $image_data) === false) {
+                logMessage("Error al guardar archivo temporal", 'ERROR');
+                return false;
+            }
+            
+            // Convertir a WebP
+            if (!@convertToWebP($temp_file, $original_path, 90)) {
+                logMessage("Error al convertir imagen original", 'ERROR');
+                return false;
+            }
+            
+            if (!@convertToWebP($temp_file, $preview_path, 25, 320, 480)) {
+                logMessage("Error al convertir preview", 'ERROR');
+                return false;
+            }
+            
+            // Limpiar archivo temporal
+            @unlink($temp_file);
+            
+            // Actualizar la base de datos con las nuevas rutas
+            $new_original_url = 'images/melwater/' . $original_filename;
+            $new_preview_url = 'images/melwater/previews/' . $preview_filename;
+            
+            $update_stmt = $pdo->prepare("UPDATE pk_melwater SET content_image = :content_image, preview_image = :preview_image WHERE external_id = :external_id");
+            $update_stmt->execute([
+                ':content_image' => $new_original_url,
+                ':preview_image' => $new_preview_url,
+                ':external_id' => $external_id
+            ]);
+            
+            logMessage("Imagen Meltwater regenerada exitosamente para {$external_id}");
+            return ['original_url' => $new_original_url, 'thumbnail_url' => $new_preview_url];
+            
+        } catch (Exception $e) {
+            logMessage("Error regenerando imagen Meltwater: " . $e->getMessage(), 'ERROR');
+            return false;
+        }
+    }
+    
+    return false;
+}
+
+// Función para regenerar imagen de Cover
+function regenerateCoverImage($external_id) {
+    global $pdo;
+    
+    logMessage("Regenerando imagen Cover para {$external_id}");
+    
+    // Obtener la URL original de la imagen desde covers
+    $stmt = $pdo->prepare("SELECT original_link FROM covers WHERE source = :source");
+    $stmt->execute([':source' => $external_id]);
+    $row = $stmt->fetch();
+    
+    if (!$row || !$row['original_link']) {
+        logMessage("No se encontró URL de imagen para Cover {$external_id}", 'ERROR');
+        return false;
+    }
+    
+    // Aquí podrías implementar la lógica para regenerar la imagen del cover
+    // Por ahora, retornamos false ya que requiere el proceso de scraping completo
+    logMessage("Regeneración de Cover requiere proceso de scraping completo", 'WARNING');
+    return false;
+}
+
+// Función para regenerar imagen de Resumen
+function regenerateResumenImage($external_id) {
+    global $pdo;
+    
+    logMessage("Regenerando imagen Resumen para {$external_id}");
+    
+    // Obtener la URL original de la imagen desde pk_meltwater_resumen
+    $stmt = $pdo->prepare("SELECT source FROM pk_meltwater_resumen WHERE twitter_id = :twitter_id");
+    $stmt->execute([':twitter_id' => $external_id]);
+    $row = $stmt->fetch();
+    
+    if (!$row || !$row['source']) {
+        logMessage("No se encontró URL de imagen para Resumen {$external_id}", 'ERROR');
+        return false;
+    }
+    
+    // Para resumen, la imagen suele ser una URL externa directa
+    // Podríamos implementar descarga directa aquí si es necesario
+    logMessage("Regeneración de Resumen requiere proceso específico", 'WARNING');
+    return false;
 }
 
 // Función para procesar cada documento
@@ -184,6 +361,13 @@ try {
         $original_url = $row['content_image'];
         $thumbnail_url = $row['preview_image'];
         
+        // Verificar y regenerar imágenes si es necesario
+        $image_result = verifyAndRegenerateImage($row['external_id'], 'meltwater', $original_url, $thumbnail_url);
+        if ($image_result) {
+            $original_url = $image_result['original_url'];
+            $thumbnail_url = $image_result['thumbnail_url'];
+        }
+        
         // Verificar que los archivos existan antes de insertar
         $original_path = __DIR__ . '/' . $original_url;
         $thumbnail_path = __DIR__ . '/' . $thumbnail_url;
@@ -263,6 +447,16 @@ try {
         if (isset($melwater_titles_dereach[mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach']])) continue;
         if (isset($inserted_keys[$key])) continue;
         
+        // Verificar y regenerar imágenes si es necesario
+        $image_result = verifyAndRegenerateImage($row['external_id'], 'cover', $row['original_url'], $row['thumbnail_url']);
+        if ($image_result) {
+            $original_url = $image_result['original_url'];
+            $thumbnail_url = $image_result['thumbnail_url'];
+        } else {
+            $original_url = $row['original_url'];
+            $thumbnail_url = $row['thumbnail_url'];
+        }
+        
         $insert = $pdo->prepare("INSERT INTO temp_portadas (
             title, grupo, pais, published_date, dereach, 
             source_type, external_id, visualizar, 
@@ -283,8 +477,8 @@ try {
             'dereach' => $row['dereach'],
             'external_id' => $row['external_id'],
             'visualizar' => $row['visualizar'],
-            'original_url' => $row['original_url'],
-            'thumbnail_url' => $row['thumbnail_url']
+            'original_url' => $original_url,
+            'thumbnail_url' => $thumbnail_url
         ]);
         
         $inserted_keys[$key] = true;
@@ -317,6 +511,16 @@ try {
         if (isset($melwater_titles_dereach[mb_substr($row['medio_title'], 0, 255) . '|' . $row['dereach']])) continue;
         if (isset($inserted_keys[$key])) continue;
         
+        // Verificar y regenerar imágenes si es necesario
+        $image_result = verifyAndRegenerateImage($row['external_id'], 'resumen', $row['original_url'], null);
+        if ($image_result) {
+            $original_url = $image_result['original_url'];
+            $thumbnail_url = $image_result['thumbnail_url'];
+        } else {
+            $original_url = $row['original_url'];
+            $thumbnail_url = null;
+        }
+        
         $insert = $pdo->prepare("INSERT INTO temp_portadas (
             title, grupo, pais, published_date, dereach, 
             source_type, external_id, visualizar, 
@@ -325,7 +529,7 @@ try {
         ) VALUES (
             :title, :grupo, :pais, :published_date, :dereach, 
             'resumen', :external_id, :visualizar, 
-            :original_url, NULL,
+            :original_url, :thumbnail_url,
             NOW(), NOW()
         )");
         
@@ -337,7 +541,8 @@ try {
             'dereach' => $row['dereach'],
             'external_id' => $row['external_id'],
             'visualizar' => $row['visualizar'],
-            'original_url' => $row['original_url']
+            'original_url' => $original_url,
+            'thumbnail_url' => $thumbnail_url
         ]);
         
         $inserted_keys[$key] = true;

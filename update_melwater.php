@@ -109,6 +109,73 @@ try {
         throw new Exception("Error al limpiar la tabla portadas: " . $e->getMessage());
     }
 
+    // Verificar actualizaciones basadas en indexed_date y limpiar registros obsoletos
+    try {
+        $pdo->beginTransaction();
+        
+        // Obtener la fecha más reciente de indexación en la base de datos
+        $latestIndexedStmt = $pdo->prepare("
+            SELECT MAX(indexed_date) as latest_indexed 
+            FROM pk_melwater 
+            WHERE indexed_date IS NOT NULL
+        ");
+        $latestIndexedStmt->execute();
+        $latestIndexed = $latestIndexedStmt->fetchColumn();
+        
+        error_log("Fecha de indexación más reciente en BD: " . ($latestIndexed ?: 'Ninguna'));
+        
+        // Obtener la fecha de indexación más reciente de los datos nuevos
+        $newestIndexedDate = null;
+        foreach ($data['documents'] as $doc) {
+            if (isset($doc['indexed_date'])) {
+                $docIndexedDate = new DateTime($doc['indexed_date']);
+                if (!$newestIndexedDate || $docIndexedDate > $newestIndexedDate) {
+                    $newestIndexedDate = $docIndexedDate;
+                }
+            }
+        }
+        
+        if ($newestIndexedDate) {
+            error_log("Fecha de indexación más reciente en datos nuevos: " . $newestIndexedDate->format('Y-m-d H:i:s'));
+        }
+        
+        // Si hay datos nuevos más recientes, limpiar registros obsoletos
+        if ($newestIndexedDate && (!$latestIndexed || $newestIndexedDate > new DateTime($latestIndexed))) {
+            error_log("Se detectaron datos más recientes, limpiando registros obsoletos...");
+            
+            // Eliminar registros de pk_melwater que sean más antiguos que la fecha más reciente
+            $cleanupStmt = $pdo->prepare("
+                DELETE FROM pk_melwater 
+                WHERE indexed_date IS NOT NULL 
+                AND indexed_date < :newest_indexed_date
+            ");
+            $cleanupStmt->execute([':newest_indexed_date' => $newestIndexedDate->format('Y-m-d H:i:s')]);
+            
+            $cleanedCount = $cleanupStmt->rowCount();
+            error_log("Se eliminaron {$cleanedCount} registros obsoletos de pk_melwater");
+            
+            // También limpiar registros de portadas correspondientes
+            $portadasCleanupStmt = $pdo->prepare("
+                DELETE p FROM portadas p
+                INNER JOIN pk_melwater m ON p.external_id = m.external_id
+                WHERE m.indexed_date IS NOT NULL 
+                AND m.indexed_date < :newest_indexed_date
+            ");
+            $portadasCleanupStmt->execute([':newest_indexed_date' => $newestIndexedDate->format('Y-m-d H:i:s')]);
+            
+            $portadasCleanedCount = $portadasCleanupStmt->rowCount();
+            error_log("Se eliminaron {$portadasCleanedCount} registros obsoletos de portadas");
+        } else {
+            error_log("No se detectaron datos más recientes, continuando con actualizaciones incrementales");
+        }
+        
+        $pdo->commit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Error al verificar y limpiar registros obsoletos: " . $e->getMessage());
+        throw new Exception("Error al verificar y limpiar registros obsoletos: " . $e->getMessage());
+    }
+
     // Preparar la consulta de inserción
     $stmt = $pdo->prepare("INSERT INTO pk_melwater (
         external_id, published_date, indexed_date, 
@@ -144,6 +211,9 @@ try {
     ];
 
     $updatedCount = 0;
+    $newCount = 0;
+    $skippedCount = 0;
+    
     foreach ($data['documents'] as $doc) {
         // Initialize image variables
         $content_image = null;
@@ -153,31 +223,47 @@ try {
         $external_id = isset($doc['author']['external_id']) ? $doc['author']['external_id'] : '';
         $published_date = isset($doc['published_date']) ? $doc['published_date'] : '';
 
-        // Verificar si el registro ya existe
-        $checkStmt = $pdo->prepare("SELECT 1 FROM pk_melwater WHERE external_id = :external_id");
+        // Verificar si el registro ya existe y obtener información completa
+        $checkStmt = $pdo->prepare("
+            SELECT content_image, preview_image, indexed_date, published_date 
+            FROM pk_melwater 
+            WHERE external_id = :external_id
+        ");
         $checkStmt->execute([':external_id' => $external_id]);
-        $exists = $checkStmt->fetchColumn();
+        $existing_record = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        $exists = $existing_record !== false;
         
+        // Verificar si necesitamos actualizar basado en indexed_date
+        $needs_update = false;
         if ($exists) {
-            error_log("Registro con external_id {$external_id} ya existe, actualizando...");
-            // Verificar si ya tiene una imagen asociada
-            $imgStmt = $pdo->prepare("SELECT content_image, preview_image FROM pk_melwater WHERE external_id = :external_id");
-            $imgStmt->execute([':external_id' => $external_id]);
-            $existing_images = $imgStmt->fetch(PDO::FETCH_ASSOC);
+            $current_indexed_date = $existing_record['indexed_date'];
+            $new_indexed_date = isset($doc['indexed_date']) ? $doc['indexed_date'] : null;
             
-            if ($existing_images) {
-                $content_image = $existing_images['content_image'];
-                $preview_image = $existing_images['preview_image'];
+            if ($new_indexed_date && (!$current_indexed_date || $new_indexed_date > $current_indexed_date)) {
+                $needs_update = true;
+                error_log("Registro con external_id {$external_id} necesita actualización - indexed_date actualizada");
+            } else {
+                error_log("Registro con external_id {$external_id} ya está actualizado, saltando...");
+                $skippedCount++;
+                continue;
+            }
+            
+            // Usar imágenes existentes si están disponibles
+            if ($existing_record['content_image'] && $existing_record['preview_image']) {
+                $content_image = $existing_record['content_image'];
+                $preview_image = $existing_record['preview_image'];
                 error_log("Usando imágenes existentes para {$external_id}:");
                 error_log("Content image: " . $content_image);
                 error_log("Preview image: " . $preview_image);
             }
         } else {
+            $needs_update = true;
             error_log("Nuevo registro con external_id {$external_id}, insertando...");
+            $newCount++;
         }
         
         // Procesar la imagen si existe y es necesario
-        if ($content_image && $external_id && (!$exists || !$existing_images || !file_exists(__DIR__ . '/' . $content_image) || !file_exists(__DIR__ . '/' . $preview_image))) {
+        if ($content_image && $external_id && (!$exists || !$existing_record || !file_exists(__DIR__ . '/' . $content_image) || !file_exists(__DIR__ . '/' . $preview_image))) {
             try {
                 // Crear directorios si no existen
                 $melwater_dir = __DIR__ . '/images/melwater';
@@ -397,9 +483,17 @@ try {
         }
     }
 
+    // Log de resumen del procesamiento
+    error_log("=== RESUMEN DEL PROCESAMIENTO ===");
+    error_log("Registros nuevos: {$newCount}");
+    error_log("Registros actualizados: {$updatedCount}");
+    error_log("Registros saltados (ya actualizados): {$skippedCount}");
+    error_log("Total de documentos procesados: " . count($data['documents']));
+    error_log("==================================");
+
     echo json_encode([
         'success' => true,
-        'message' => "Se actualizaron {$updatedCount} registros correctamente."
+        'message' => "Procesamiento completado: {$newCount} nuevos registros, {$updatedCount} actualizados, {$skippedCount} saltados (ya actualizados)."
     ]);
 
     // Llamar a process_portadas.php para actualizar la tabla portadas
@@ -430,6 +524,139 @@ try {
         error_log("Tabla portadas actualizada correctamente a través de process_portadas.php");
     } catch (Exception $e) {
         error_log("Error al actualizar tabla portadas: " . $e->getMessage());
+    }
+
+    // Limpiar archivos de imagen no referenciados
+    try {
+        error_log("Iniciando limpieza de archivos de imagen no referenciados...");
+        
+        // Obtener todas las rutas de imágenes referenciadas en la base de datos
+        $referencedImages = [];
+        
+        // Obtener imágenes de pk_melwater
+        $melwaterStmt = $pdo->prepare("
+            SELECT content_image, preview_image 
+            FROM pk_melwater 
+            WHERE content_image IS NOT NULL OR preview_image IS NOT NULL
+        ");
+        $melwaterStmt->execute();
+        $melwaterImages = $melwaterStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($melwaterImages as $row) {
+            if ($row['content_image']) {
+                $referencedImages[] = $row['content_image'];
+            }
+            if ($row['preview_image']) {
+                $referencedImages[] = $row['preview_image'];
+            }
+        }
+        
+        // Obtener imágenes de portadas
+        $portadasStmt = $pdo->prepare("
+            SELECT original_url, thumbnail_url 
+            FROM portadas 
+            WHERE original_url IS NOT NULL OR thumbnail_url IS NOT NULL
+        ");
+        $portadasStmt->execute();
+        $portadasImages = $portadasStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($portadasImages as $row) {
+            if ($row['original_url']) {
+                $referencedImages[] = $row['original_url'];
+            }
+            if ($row['thumbnail_url']) {
+                $referencedImages[] = $row['thumbnail_url'];
+            }
+        }
+        
+        // Convertir a rutas absolutas y crear un conjunto para búsqueda rápida
+        $referencedPaths = [];
+        foreach ($referencedImages as $imagePath) {
+            if ($imagePath && !empty($imagePath)) {
+                $absolutePath = __DIR__ . '/' . $imagePath;
+                $referencedPaths[$absolutePath] = true;
+            }
+        }
+        
+        error_log("Total de imágenes referenciadas en BD: " . count($referencedPaths));
+        
+        // Función recursiva para escanear directorios
+        function scanDirectory($dir, $referencedPaths, &$deletedFiles, &$deletedSize) {
+            if (!is_dir($dir)) {
+                return;
+            }
+            
+            $files = scandir($dir);
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') {
+                    continue;
+                }
+                
+                $filePath = $dir . '/' . $file;
+                
+                if (is_dir($filePath)) {
+                    // Recursivamente escanear subdirectorios
+                    scanDirectory($filePath, $referencedPaths, $deletedFiles, $deletedSize);
+                } else {
+                    // Verificar si es un archivo de imagen
+                    $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff'];
+                    
+                    if (in_array($extension, $imageExtensions)) {
+                        // Verificar si el archivo está referenciado
+                        if (!isset($referencedPaths[$filePath])) {
+                            $fileSize = filesize($filePath);
+                            if (@unlink($filePath)) {
+                                $deletedFiles++;
+                                $deletedSize += $fileSize;
+                                error_log("Archivo eliminado (no referenciado): " . basename($filePath) . " (" . number_format($fileSize) . " bytes)");
+                            } else {
+                                error_log("Error al eliminar archivo: " . basename($filePath));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Escanear directorio images
+        $imagesDir = __DIR__ . '/images';
+        $deletedFiles = 0;
+        $deletedSize = 0;
+        
+        if (is_dir($imagesDir)) {
+            scanDirectory($imagesDir, $referencedPaths, $deletedFiles, $deletedSize);
+        }
+        
+        // También limpiar archivos temporales del sistema
+        $tempDir = sys_get_temp_dir();
+        $tempFiles = glob($tempDir . '/melwater_*');
+        $tempDeleted = 0;
+        $tempDeletedSize = 0;
+        
+        foreach ($tempFiles as $tempFile) {
+            // Verificar si el archivo es más antiguo que 1 hora
+            if (filemtime($tempFile) < (time() - 3600)) {
+                $fileSize = filesize($tempFile);
+                if (@unlink($tempFile)) {
+                    $tempDeleted++;
+                    $tempDeletedSize += $fileSize;
+                    error_log("Archivo temporal eliminado: " . basename($tempFile) . " (" . number_format($fileSize) . " bytes)");
+                }
+            }
+        }
+        
+        // Log de resumen de limpieza
+        error_log("=== RESUMEN DE LIMPIEZA DE IMÁGENES ===");
+        error_log("Archivos de imagen eliminados: {$deletedFiles}");
+        error_log("Espacio liberado (imágenes): " . number_format($deletedSize) . " bytes (" . number_format($deletedSize / 1024 / 1024, 2) . " MB)");
+        error_log("Archivos temporales eliminados: {$tempDeleted}");
+        error_log("Espacio liberado (temporales): " . number_format($tempDeletedSize) . " bytes (" . number_format($tempDeletedSize / 1024 / 1024, 2) . " MB)");
+        error_log("Total espacio liberado: " . number_format($deletedSize + $tempDeletedSize) . " bytes (" . number_format(($deletedSize + $tempDeletedSize) / 1024 / 1024, 2) . " MB)");
+        error_log("=========================================");
+        
+    } catch (Exception $e) {
+        error_log("Error durante la limpieza de imágenes: " . $e->getMessage());
     }
 
 } catch (Exception $e) {

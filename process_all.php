@@ -1006,6 +1006,138 @@ if ($success) {
     echo "<script>addStatus('El proceso se detuvo debido a errores', true);</script>";
 }
 
+// Limpieza de imágenes y archivos temporales no referenciados
+try {
+    logMessage("Iniciando limpieza de archivos de imagen no referenciados...");
+    
+    // Obtener todas las rutas de imágenes referenciadas en la base de datos
+    $referencedImages = [];
+    
+    // Obtener imágenes de pk_melwater
+    $melwaterStmt = $pdo->prepare("
+        SELECT content_image, preview_image 
+        FROM pk_melwater 
+        WHERE content_image IS NOT NULL OR preview_image IS NOT NULL
+    ");
+    $melwaterStmt->execute();
+    $melwaterImages = $melwaterStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach ($melwaterImages as $row) {
+        if ($row['content_image']) {
+            $referencedImages[] = $row['content_image'];
+        }
+        if ($row['preview_image']) {
+            $referencedImages[] = $row['preview_image'];
+        }
+    }
+    
+    // Obtener imágenes de portadas
+    $portadasStmt = $pdo->prepare("
+        SELECT original_url, thumbnail_url 
+        FROM portadas 
+        WHERE original_url IS NOT NULL OR thumbnail_url IS NOT NULL
+    ");
+    $portadasStmt->execute();
+    $portadasImages = $portadasStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach ($portadasImages as $row) {
+        if ($row['original_url']) {
+            $referencedImages[] = $row['original_url'];
+        }
+        if ($row['thumbnail_url']) {
+            $referencedImages[] = $row['thumbnail_url'];
+        }
+    }
+    
+    // Convertir a rutas absolutas y crear un conjunto para búsqueda rápida
+    $referencedPaths = [];
+    foreach ($referencedImages as $imagePath) {
+        if ($imagePath && !empty($imagePath)) {
+            $absolutePath = __DIR__ . '/' . $imagePath;
+            $referencedPaths[$absolutePath] = true;
+        }
+    }
+    
+    logMessage("Total de imágenes referenciadas en BD: " . count($referencedPaths));
+    
+    // Función recursiva para escanear directorios
+    function scanDirectory($dir, $referencedPaths, &$deletedFiles, &$deletedSize) {
+        if (!is_dir($dir)) {
+            return;
+        }
+        
+        $files = scandir($dir);
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            
+            $filePath = $dir . '/' . $file;
+            
+            if (is_dir($filePath)) {
+                // Recursivamente escanear subdirectorios
+                scanDirectory($filePath, $referencedPaths, $deletedFiles, $deletedSize);
+            } else {
+                // Verificar si es un archivo de imagen
+                $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff'];
+                
+                if (in_array($extension, $imageExtensions)) {
+                    // Verificar si el archivo está referenciado
+                    if (!isset($referencedPaths[$filePath])) {
+                        $fileSize = filesize($filePath);
+                        if (@unlink($filePath)) {
+                            $deletedFiles++;
+                            $deletedSize += $fileSize;
+                            logMessage("Archivo eliminado (no referenciado): " . basename($filePath) . " (" . number_format($fileSize) . " bytes)");
+                        } else {
+                            logMessage("Error al eliminar archivo: " . basename($filePath), 'ERROR');
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Escanear directorio images
+    $imagesDir = __DIR__ . '/images';
+    $deletedFiles = 0;
+    $deletedSize = 0;
+    
+    if (is_dir($imagesDir)) {
+        scanDirectory($imagesDir, $referencedPaths, $deletedFiles, $deletedSize);
+    }
+    
+    // También limpiar archivos temporales del sistema
+    $tempDir = sys_get_temp_dir();
+    $tempFiles = glob($tempDir . '/melwater_*');
+    $tempDeleted = 0;
+    $tempDeletedSize = 0;
+    
+    foreach ($tempFiles as $tempFile) {
+        // Verificar si el archivo es más antiguo que 1 hora
+        if (filemtime($tempFile) < (time() - 3600)) {
+            $fileSize = filesize($tempFile);
+            if (@unlink($tempFile)) {
+                $tempDeleted++;
+                $tempDeletedSize += $fileSize;
+                logMessage("Archivo temporal eliminado: " . basename($tempFile) . " (" . number_format($fileSize) . " bytes)");
+            }
+        }
+    }
+    
+    // Log de resumen de limpieza
+    logMessage("=== RESUMEN DE LIMPIEZA DE IMÁGENES ===");
+    logMessage("Archivos de imagen eliminados: {$deletedFiles}");
+    logMessage("Espacio liberado (imágenes): " . number_format($deletedSize) . " bytes (" . number_format($deletedSize / 1024 / 1024, 2) . " MB)");
+    logMessage("Archivos temporales eliminados: {$tempDeleted}");
+    logMessage("Espacio liberado (temporales): " . number_format($tempDeletedSize) . " bytes (" . number_format($tempDeletedSize / 1024 / 1024, 2) . " MB)");
+    logMessage("Total espacio liberado: " . number_format($deletedSize + $tempDeletedSize) . " bytes (" . number_format(($deletedSize + $tempDeletedSize) / 1024 / 1024, 2) . " MB)");
+    logMessage("=========================================");
+} catch (Exception $e) {
+    logMessage("Error durante la limpieza de imágenes: " . $e->getMessage(), 'ERROR');
+}
+
 // Limpiar y enviar el buffer
 ob_end_flush();
 ?> 
