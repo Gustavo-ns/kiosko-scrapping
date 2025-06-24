@@ -1,0 +1,394 @@
+[2025-06-24 05:40:03][INFO] Iniciando proceso de actualización automática
+[2025-06-24 05:40:03][WARNING] No se encontró registro de última fecha de scraping
+[2025-06-24 05:40:03][INFO] Progreso: 33.333333333333%
+[2025-06-24 05:40:03][INFO] Iniciando proceso: Actualización de Meltwater
+[2025-06-24 05:40:05][INFO] Content-Type: application/json
+[2025-06-24 05:40:05][INFO] 
+[2025-06-24 05:40:05][INFO] {"success":true,"message":"Procesamiento completado: 0 nuevos registros, 14 actualizados, 1 saltados (ya actualizados)."}
+[2025-06-24 05:40:05][INFO] Proceso Actualización de Meltwater completado exitosamente
+[2025-06-24 05:40:05][INFO] Proceso completado: Actualización de Meltwater
+[2025-06-24 05:40:05][INFO] Progreso: 66.666666666667%
+[2025-06-24 05:40:05][INFO] Iniciando proceso: Scraping de Portadas
+[2025-06-24 05:41:58][INFO] Content-type: text/html; charset=UTF-8
+[2025-06-24 05:41:58][INFO] 
+[2025-06-24 05:41:58][INFO] 
+[2025-06-24 05:41:58][INFO] Scraping iniciado a las 05:40:05.
+[2025-06-24 05:41:58][INFO] Iniciando scraping (última fecha: 2025-06-23)...
+[2025-06-24 05:41:58][INFO] Tabla covers limpiada.
+[2025-06-24 05:41:58][INFO] Total de sitios a scrapear: 28
+[2025-06-24 05:41:58][INFO] <br>Procesando [1/28: 4%] https://es.kiosko.net/uk/np/guardian.html
+[2025-06-24 05:41:58][INFO] <br>Procesando [2/28: 7%] https://es.kiosko.net/uk/np/ft_uk.html
+[2025-06-24 05:41:58][INFO] <br>Procesando [3/28: 11%] https://es.kiosko.net/ar/
+[2025-06-24 05:41:58][INFO] <br>Procesando [4/28: 14%] https://es.kiosko.net/py/
+[2025-06-24 05:41:58][INFO] <br>Procesando [5/28: 18%] https://www.adndigital.com.py/
+[2025-06-24 05:41:58][INFO] <br>Procesando [6/28: 21%] https://www.cronica.com.py/
+[2025-06-24 05:41:58][INFO] <br>Procesando [7/28: 25%] https://independiente.com.py
+[2025-06-24 05:41:58][INFO] <br>Procesando [8/28: 29%] https://www.popular.com.py/
+[2025-06-24 05:41:58][INFO] <br>Procesando [9/28: 32%] https://www.abc.com.py/edicion-impresa/
+[2025-06-24 05:41:58][INFO] <br>Procesando [10/28: 36%] https://www.extra.com.py/
+[2025-06-24 05:41:58][INFO] <br>Procesando [11/28: 39%] https://www.ip.gov.py/ip/
+[2025-06-24 05:41:58][INFO] <br>Procesando [12/28: 43%] https://es.kiosko.net/br/
+[2025-06-24 05:41:58][INFO] <br>Procesando [13/28: 46%] https://es.kiosko.net/us/
+[2025-06-24 05:41:58][INFO] <br>Procesando [14/28: 50%] https://es.kiosko.net/uy/
+[2025-06-24 05:41:58][INFO] <br>Procesando [15/28: 54%] https://www.elobservador.com.uy/
+[2025-06-24 05:41:58][INFO] <br>Procesando [16/28: 57%] https://es.kiosko.net/cl/
+[2025-06-24 05:41:58][INFO] <br>Procesando [17/28: 61%] https://es.kiosko.net/co/
+[2025-06-24 05:41:58][INFO] <br>Procesando [18/28: 64%] https://es.kiosko.net/ec/
+[2025-06-24 05:41:58][INFO] <br>Procesando [19/28: 68%] https://es.kiosko.net/pe/
+[2025-06-24 05:41:58][INFO] <br>Procesando [20/28: 71%] https://es.kiosko.net/ve/
+[2025-06-24 05:41:58][INFO] <br>Procesando [21/28: 75%] https://es.kiosko.net/bo/
+[2025-06-24 05:41:58][INFO] <br>Procesando [22/28: 79%] https://eldeber.com.bo/
+[2025-06-24 05:41:58][INFO] <br>Procesando [23/28: 82%] https://larazon.bo/
+[2025-06-24 05:41:58][INFO] <br>Procesando [24/28: 86%] https://www.lostiempos.com/
+[2025-06-24 05:41:58][INFO] <br>Procesando [25/28: 89%] https://www.eldiario.net/portal/
+[2025-06-24 05:41:58][INFO] <br>Procesando [26/28: 93%] https://es.kiosko.net/mx/
+[2025-06-24 05:41:58][INFO] <br>Procesando [27/28: 96%] https://es.kiosko.net/pa/
+[2025-06-24 05:41:58][INFO] <br>Procesando [28/28: 100%] https://es.kiosko.net/do/
+[2025-06-24 05:41:58][INFO] <br>
+[2025-06-24 05:41:58][INFO] Scraping finalizado a las 05:41:58. Duración: 112.22s
+[2025-06-24 05:41:58][INFO] Proceso Scraping de Portadas completado exitosamente
+[2025-06-24 05:41:58][INFO] Proceso completado: Scraping de Portadas
+[2025-06-24 05:41:58][INFO] Progreso: 100%
+[2025-06-24 05:41:58][INFO] Iniciando proceso: Actualización de Portadas
+[2025-06-24 05:41:58][INFO] Content-Type: application/json
+[2025-06-24 05:41:58][INFO] 
+[2025-06-24 05:41:58][INFO] {"success":true,"message":"Procesamiento completado. Total insertados: 46"}
+[2025-06-24 05:41:58][INFO] Proceso Actualización de Portadas completado exitosamente
+[2025-06-24 05:41:58][INFO] Proceso completado: Actualización de Portadas
+[2025-06-24 05:41:58][INFO] Todos los procesos se completaron exitosamente
+[2025-06-24 06:33:02][INFO] Iniciando proceso de actualización automática
+[2025-06-24 06:33:02][WARNING] No se encontró registro de última fecha de scraping
+[2025-06-24 06:33:02][INFO] Progreso: 33.333333333333%
+[2025-06-24 06:33:02][INFO] Iniciando proceso: Actualización de Meltwater
+[2025-06-24 06:33:11][INFO] Content-Type: application/json
+[2025-06-24 06:33:11][INFO] 
+[2025-06-24 06:33:11][INFO] {"success":true,"message":"Procesamiento completado: 14 nuevos registros, 18 actualizados, 0 saltados (ya actualizados)."}
+[2025-06-24 06:33:11][INFO] Proceso Actualización de Meltwater completado exitosamente
+[2025-06-24 06:33:11][INFO] Proceso completado: Actualización de Meltwater
+[2025-06-24 06:33:11][INFO] Progreso: 66.666666666667%
+[2025-06-24 06:33:11][INFO] Iniciando proceso: Scraping de Portadas
+[2025-06-24 06:34:13][INFO] Content-type: text/html; charset=UTF-8
+[2025-06-24 06:34:13][INFO] 
+[2025-06-24 06:34:13][INFO] 
+[2025-06-24 06:34:13][INFO] Scraping iniciado a las 06:33:11.
+[2025-06-24 06:34:13][INFO] Total de sitios a scrapear: 28
+[2025-06-24 06:34:13][INFO] <br>Procesando [1/28: 4%] https://es.kiosko.net/uk/np/guardian.html
+[2025-06-24 06:34:13][INFO] <br>Procesando [2/28: 7%] https://es.kiosko.net/uk/np/ft_uk.html
+[2025-06-24 06:34:13][INFO] <br>Procesando [3/28: 11%] https://es.kiosko.net/ar/
+[2025-06-24 06:34:13][INFO] <br>Procesando [4/28: 14%] https://es.kiosko.net/py/
+[2025-06-24 06:34:13][INFO] <br>Procesando [5/28: 18%] https://www.adndigital.com.py/
+[2025-06-24 06:34:13][INFO] <br>Procesando [6/28: 21%] https://www.cronica.com.py/
+[2025-06-24 06:34:13][INFO] <br>Procesando [7/28: 25%] https://independiente.com.py
+[2025-06-24 06:34:13][INFO] <br>Procesando [8/28: 29%] https://www.popular.com.py/
+[2025-06-24 06:34:13][INFO] <br>Procesando [9/28: 32%] https://www.abc.com.py/edicion-impresa/
+[2025-06-24 06:34:13][INFO] <br>Procesando [10/28: 36%] https://www.extra.com.py/
+[2025-06-24 06:34:13][INFO] <br>Procesando [11/28: 39%] https://www.ip.gov.py/ip/
+[2025-06-24 06:34:13][INFO] <br>Procesando [12/28: 43%] https://es.kiosko.net/br/
+[2025-06-24 06:34:13][INFO] <br>Procesando [13/28: 46%] https://es.kiosko.net/us/
+[2025-06-24 06:34:13][INFO] <br>Procesando [14/28: 50%] https://es.kiosko.net/uy/
+[2025-06-24 06:34:13][INFO] <br>Procesando [15/28: 54%] https://www.elobservador.com.uy/
+[2025-06-24 06:34:13][INFO] <br>Procesando [16/28: 57%] https://es.kiosko.net/cl/
+[2025-06-24 06:34:13][INFO] <br>Procesando [17/28: 61%] https://es.kiosko.net/co/
+[2025-06-24 06:34:13][INFO] <br>Procesando [18/28: 64%] https://es.kiosko.net/ec/
+[2025-06-24 06:34:13][INFO] <br>Procesando [19/28: 68%] https://es.kiosko.net/pe/
+[2025-06-24 06:34:13][INFO] <br>Procesando [20/28: 71%] https://es.kiosko.net/ve/
+[2025-06-24 06:34:13][INFO] <br>Procesando [21/28: 75%] https://es.kiosko.net/bo/
+[2025-06-24 06:34:13][INFO] <br>Procesando [22/28: 79%] https://eldeber.com.bo/
+[2025-06-24 06:34:13][INFO] <br>Procesando [23/28: 82%] https://larazon.bo/
+[2025-06-24 06:34:13][INFO] <br>Procesando [24/28: 86%] https://www.lostiempos.com/
+[2025-06-24 06:34:13][INFO] <br>Procesando [25/28: 89%] https://www.eldiario.net/portal/
+[2025-06-24 06:34:13][INFO] <br>Procesando [26/28: 93%] https://es.kiosko.net/mx/
+[2025-06-24 06:34:13][INFO] <br>Procesando [27/28: 96%] https://es.kiosko.net/pa/
+[2025-06-24 06:34:13][INFO] <br>Procesando [28/28: 100%] https://es.kiosko.net/do/
+[2025-06-24 06:34:13][INFO] <br>
+[2025-06-24 06:34:13][INFO] Scraping finalizado a las 06:34:13. Duración: 61.34s
+[2025-06-24 06:34:13][INFO] Proceso Scraping de Portadas completado exitosamente
+[2025-06-24 06:34:13][INFO] Proceso completado: Scraping de Portadas
+[2025-06-24 06:34:13][INFO] Progreso: 100%
+[2025-06-24 06:34:13][INFO] Iniciando proceso: Actualización de Portadas
+[2025-06-24 06:34:13][INFO] Content-Type: application/json
+[2025-06-24 06:34:13][INFO] 
+[2025-06-24 06:34:13][INFO] {"success":true,"message":"Procesamiento completado. Total insertados: 56"}
+[2025-06-24 06:34:13][INFO] Proceso Actualización de Portadas completado exitosamente
+[2025-06-24 06:34:13][INFO] Proceso completado: Actualización de Portadas
+[2025-06-24 06:34:13][INFO] Todos los procesos se completaron exitosamente
+[2025-06-24 07:04:02][INFO] Iniciando proceso de actualización automática
+[2025-06-24 07:04:02][WARNING] No se encontró registro de última fecha de scraping
+[2025-06-24 07:04:02][INFO] Progreso: 33.333333333333%
+[2025-06-24 07:04:02][INFO] Iniciando proceso: Actualización de Meltwater
+[2025-06-24 07:04:04][INFO] Content-Type: application/json
+[2025-06-24 07:04:04][INFO] 
+[2025-06-24 07:04:04][INFO] {"success":true,"message":"Procesamiento completado: 0 nuevos registros, 14 actualizados, 3 saltados (ya actualizados)."}
+[2025-06-24 07:04:04][INFO] Proceso Actualización de Meltwater completado exitosamente
+[2025-06-24 07:04:04][INFO] Proceso completado: Actualización de Meltwater
+[2025-06-24 07:04:04][INFO] Progreso: 66.666666666667%
+[2025-06-24 07:04:04][INFO] Iniciando proceso: Scraping de Portadas
+[2025-06-24 07:05:05][INFO] Content-type: text/html; charset=UTF-8
+[2025-06-24 07:05:05][INFO] 
+[2025-06-24 07:05:05][INFO] 
+[2025-06-24 07:05:05][INFO] Scraping iniciado a las 07:04:04.
+[2025-06-24 07:05:05][INFO] Total de sitios a scrapear: 28
+[2025-06-24 07:05:05][INFO] <br>Procesando [1/28: 4%] https://es.kiosko.net/uk/np/guardian.html
+[2025-06-24 07:05:05][INFO] <br>Procesando [2/28: 7%] https://es.kiosko.net/uk/np/ft_uk.html
+[2025-06-24 07:05:05][INFO] <br>Procesando [3/28: 11%] https://es.kiosko.net/ar/
+[2025-06-24 07:05:05][INFO] <br>Procesando [4/28: 14%] https://es.kiosko.net/py/
+[2025-06-24 07:05:05][INFO] <br>Procesando [5/28: 18%] https://www.adndigital.com.py/
+[2025-06-24 07:05:05][INFO] <br>Procesando [6/28: 21%] https://www.cronica.com.py/
+[2025-06-24 07:05:05][INFO] <br>Procesando [7/28: 25%] https://independiente.com.py
+[2025-06-24 07:05:05][INFO] <br>Procesando [8/28: 29%] https://www.popular.com.py/
+[2025-06-24 07:05:05][INFO] <br>Procesando [9/28: 32%] https://www.abc.com.py/edicion-impresa/
+[2025-06-24 07:05:05][INFO] <br>Procesando [10/28: 36%] https://www.extra.com.py/
+[2025-06-24 07:05:05][INFO] <br>Procesando [11/28: 39%] https://www.ip.gov.py/ip/
+[2025-06-24 07:05:05][INFO] <br>Procesando [12/28: 43%] https://es.kiosko.net/br/
+[2025-06-24 07:05:05][INFO] <br>Procesando [13/28: 46%] https://es.kiosko.net/us/
+[2025-06-24 07:05:05][INFO] <br>Procesando [14/28: 50%] https://es.kiosko.net/uy/
+[2025-06-24 07:05:05][INFO] <br>Procesando [15/28: 54%] https://www.elobservador.com.uy/
+[2025-06-24 07:05:05][INFO] <br>Procesando [16/28: 57%] https://es.kiosko.net/cl/
+[2025-06-24 07:05:05][INFO] <br>Procesando [17/28: 61%] https://es.kiosko.net/co/
+[2025-06-24 07:05:05][INFO] <br>Procesando [18/28: 64%] https://es.kiosko.net/ec/
+[2025-06-24 07:05:05][INFO] <br>Procesando [19/28: 68%] https://es.kiosko.net/pe/
+[2025-06-24 07:05:05][INFO] <br>Procesando [20/28: 71%] https://es.kiosko.net/ve/
+[2025-06-24 07:05:05][INFO] <br>Procesando [21/28: 75%] https://es.kiosko.net/bo/
+[2025-06-24 07:05:05][INFO] <br>Procesando [22/28: 79%] https://eldeber.com.bo/
+[2025-06-24 07:05:05][INFO] <br>Procesando [23/28: 82%] https://larazon.bo/
+[2025-06-24 07:05:05][INFO] <br>Procesando [24/28: 86%] https://www.lostiempos.com/
+[2025-06-24 07:05:05][INFO] <br>Procesando [25/28: 89%] https://www.eldiario.net/portal/
+[2025-06-24 07:05:05][INFO] <br>Procesando [26/28: 93%] https://es.kiosko.net/mx/
+[2025-06-24 07:05:05][INFO] <br>Procesando [27/28: 96%] https://es.kiosko.net/pa/
+[2025-06-24 07:05:05][INFO] <br>Procesando [28/28: 100%] https://es.kiosko.net/do/
+[2025-06-24 07:05:05][INFO] <br>
+[2025-06-24 07:05:05][INFO] Scraping finalizado a las 07:05:05. Duración: 60.3s
+[2025-06-24 07:05:05][INFO] Proceso Scraping de Portadas completado exitosamente
+[2025-06-24 07:05:05][INFO] Proceso completado: Scraping de Portadas
+[2025-06-24 07:05:05][INFO] Progreso: 100%
+[2025-06-24 07:05:05][INFO] Iniciando proceso: Actualización de Portadas
+[2025-06-24 07:05:05][INFO] Content-Type: application/json
+[2025-06-24 07:05:05][INFO] 
+[2025-06-24 07:05:05][INFO] {"success":true,"message":"Procesamiento completado. Total insertados: 56"}
+[2025-06-24 07:05:05][INFO] Proceso Actualización de Portadas completado exitosamente
+[2025-06-24 07:05:05][INFO] Proceso completado: Actualización de Portadas
+[2025-06-24 07:05:05][INFO] Todos los procesos se completaron exitosamente
+[2025-06-24 07:40:02][INFO] Iniciando proceso de actualización automática
+[2025-06-24 07:40:02][WARNING] No se encontró registro de última fecha de scraping
+[2025-06-24 07:40:02][INFO] Progreso: 33.333333333333%
+[2025-06-24 07:40:02][INFO] Iniciando proceso: Actualización de Meltwater
+[2025-06-24 07:40:05][INFO] Content-Type: application/json
+[2025-06-24 07:40:05][INFO] 
+[2025-06-24 07:40:05][INFO] {"success":true,"message":"Procesamiento completado: 0 nuevos registros, 14 actualizados, 3 saltados (ya actualizados)."}
+[2025-06-24 07:40:05][INFO] Proceso Actualización de Meltwater completado exitosamente
+[2025-06-24 07:40:05][INFO] Proceso completado: Actualización de Meltwater
+[2025-06-24 07:40:05][INFO] Progreso: 66.666666666667%
+[2025-06-24 07:40:05][INFO] Iniciando proceso: Scraping de Portadas
+[2025-06-24 07:41:06][INFO] Content-type: text/html; charset=UTF-8
+[2025-06-24 07:41:06][INFO] 
+[2025-06-24 07:41:06][INFO] 
+[2025-06-24 07:41:06][INFO] Scraping iniciado a las 07:40:05.
+[2025-06-24 07:41:06][INFO] Total de sitios a scrapear: 28
+[2025-06-24 07:41:06][INFO] <br>Procesando [1/28: 4%] https://es.kiosko.net/uk/np/guardian.html
+[2025-06-24 07:41:06][INFO] <br>Procesando [2/28: 7%] https://es.kiosko.net/uk/np/ft_uk.html
+[2025-06-24 07:41:06][INFO] <br>Procesando [3/28: 11%] https://es.kiosko.net/ar/
+[2025-06-24 07:41:06][INFO] <br>Procesando [4/28: 14%] https://es.kiosko.net/py/
+[2025-06-24 07:41:06][INFO] <br>Procesando [5/28: 18%] https://www.adndigital.com.py/
+[2025-06-24 07:41:06][INFO] <br>Procesando [6/28: 21%] https://www.cronica.com.py/
+[2025-06-24 07:41:06][INFO] <br>Procesando [7/28: 25%] https://independiente.com.py
+[2025-06-24 07:41:06][INFO] <br>Procesando [8/28: 29%] https://www.popular.com.py/
+[2025-06-24 07:41:06][INFO] <br>Procesando [9/28: 32%] https://www.abc.com.py/edicion-impresa/
+[2025-06-24 07:41:06][INFO] <br>Procesando [10/28: 36%] https://www.extra.com.py/
+[2025-06-24 07:41:06][INFO] <br>Procesando [11/28: 39%] https://www.ip.gov.py/ip/
+[2025-06-24 07:41:06][INFO] <br>Procesando [12/28: 43%] https://es.kiosko.net/br/
+[2025-06-24 07:41:06][INFO] <br>Procesando [13/28: 46%] https://es.kiosko.net/us/
+[2025-06-24 07:41:06][INFO] <br>Procesando [14/28: 50%] https://es.kiosko.net/uy/
+[2025-06-24 07:41:06][INFO] <br>Procesando [15/28: 54%] https://www.elobservador.com.uy/
+[2025-06-24 07:41:06][INFO] <br>Procesando [16/28: 57%] https://es.kiosko.net/cl/
+[2025-06-24 07:41:06][INFO] <br>Procesando [17/28: 61%] https://es.kiosko.net/co/
+[2025-06-24 07:41:06][INFO] <br>Procesando [18/28: 64%] https://es.kiosko.net/ec/
+[2025-06-24 07:41:06][INFO] <br>Procesando [19/28: 68%] https://es.kiosko.net/pe/
+[2025-06-24 07:41:06][INFO] <br>Procesando [20/28: 71%] https://es.kiosko.net/ve/
+[2025-06-24 07:41:06][INFO] <br>Procesando [21/28: 75%] https://es.kiosko.net/bo/
+[2025-06-24 07:41:06][INFO] <br>Procesando [22/28: 79%] https://eldeber.com.bo/
+[2025-06-24 07:41:06][INFO] <br>Procesando [23/28: 82%] https://larazon.bo/
+[2025-06-24 07:41:06][INFO] <br>Procesando [24/28: 86%] https://www.lostiempos.com/
+[2025-06-24 07:41:06][INFO] <br>Procesando [25/28: 89%] https://www.eldiario.net/portal/
+[2025-06-24 07:41:06][INFO] <br>Procesando [26/28: 93%] https://es.kiosko.net/mx/
+[2025-06-24 07:41:06][INFO] <br>Procesando [27/28: 96%] https://es.kiosko.net/pa/
+[2025-06-24 07:41:06][INFO] <br>Procesando [28/28: 100%] https://es.kiosko.net/do/
+[2025-06-24 07:41:06][INFO] <br>
+[2025-06-24 07:41:06][INFO] Scraping finalizado a las 07:41:06. Duración: 61.02s
+[2025-06-24 07:41:06][INFO] Proceso Scraping de Portadas completado exitosamente
+[2025-06-24 07:41:06][INFO] Proceso completado: Scraping de Portadas
+[2025-06-24 07:41:06][INFO] Progreso: 100%
+[2025-06-24 07:41:06][INFO] Iniciando proceso: Actualización de Portadas
+[2025-06-24 07:41:06][INFO] Content-Type: application/json
+[2025-06-24 07:41:06][INFO] 
+[2025-06-24 07:41:06][INFO] {"success":true,"message":"Procesamiento completado. Total insertados: 57"}
+[2025-06-24 07:41:06][INFO] Proceso Actualización de Portadas completado exitosamente
+[2025-06-24 07:41:06][INFO] Proceso completado: Actualización de Portadas
+[2025-06-24 07:41:06][INFO] Todos los procesos se completaron exitosamente
+[2025-06-24 08:35:01][INFO] Iniciando proceso de actualización automática
+[2025-06-24 08:35:01][WARNING] No se encontró registro de última fecha de scraping
+[2025-06-24 08:35:01][INFO] Progreso: 33.333333333333%
+[2025-06-24 08:35:01][INFO] Iniciando proceso: Actualización de Meltwater
+[2025-06-24 08:35:03][INFO] Content-Type: application/json
+[2025-06-24 08:35:03][INFO] 
+[2025-06-24 08:35:03][INFO] {"success":true,"message":"Procesamiento completado: 0 nuevos registros, 14 actualizados, 3 saltados (ya actualizados)."}
+[2025-06-24 08:35:03][INFO] Proceso Actualización de Meltwater completado exitosamente
+[2025-06-24 08:35:03][INFO] Proceso completado: Actualización de Meltwater
+[2025-06-24 08:35:03][INFO] Progreso: 66.666666666667%
+[2025-06-24 08:35:03][INFO] Iniciando proceso: Scraping de Portadas
+[2025-06-24 08:36:19][INFO] Content-type: text/html; charset=UTF-8
+[2025-06-24 08:36:19][INFO] 
+[2025-06-24 08:36:19][INFO] 
+[2025-06-24 08:36:19][INFO] Scraping iniciado a las 08:35:03.
+[2025-06-24 08:36:19][INFO] Total de sitios a scrapear: 28
+[2025-06-24 08:36:19][INFO] <br>Procesando [1/28: 4%] https://es.kiosko.net/uk/np/guardian.html
+[2025-06-24 08:36:19][INFO] <br>Procesando [2/28: 7%] https://es.kiosko.net/uk/np/ft_uk.html
+[2025-06-24 08:36:19][INFO] <br>Procesando [3/28: 11%] https://es.kiosko.net/ar/
+[2025-06-24 08:36:19][INFO] <br>Procesando [4/28: 14%] https://es.kiosko.net/py/
+[2025-06-24 08:36:19][INFO] <br>Procesando [5/28: 18%] https://www.adndigital.com.py/
+[2025-06-24 08:36:19][INFO] <br>Procesando [6/28: 21%] https://www.cronica.com.py/
+[2025-06-24 08:36:19][INFO] <br>Procesando [7/28: 25%] https://independiente.com.py
+[2025-06-24 08:36:19][INFO] <br>Procesando [8/28: 29%] https://www.popular.com.py/
+[2025-06-24 08:36:19][INFO] <br>Procesando [9/28: 32%] https://www.abc.com.py/edicion-impresa/
+[2025-06-24 08:36:19][INFO] <br>Procesando [10/28: 36%] https://www.extra.com.py/
+[2025-06-24 08:36:19][INFO] <br>Procesando [11/28: 39%] https://www.ip.gov.py/ip/
+[2025-06-24 08:36:19][INFO] <br>Procesando [12/28: 43%] https://es.kiosko.net/br/
+[2025-06-24 08:36:19][INFO] <br>Procesando [13/28: 46%] https://es.kiosko.net/us/
+[2025-06-24 08:36:19][INFO] <br>Procesando [14/28: 50%] https://es.kiosko.net/uy/
+[2025-06-24 08:36:19][INFO] <br>Procesando [15/28: 54%] https://www.elobservador.com.uy/
+[2025-06-24 08:36:19][INFO] <br>Procesando [16/28: 57%] https://es.kiosko.net/cl/
+[2025-06-24 08:36:19][INFO] <br>Procesando [17/28: 61%] https://es.kiosko.net/co/
+[2025-06-24 08:36:19][INFO] <br>Procesando [18/28: 64%] https://es.kiosko.net/ec/
+[2025-06-24 08:36:19][INFO] <br>Procesando [19/28: 68%] https://es.kiosko.net/pe/
+[2025-06-24 08:36:19][INFO] <br>Procesando [20/28: 71%] https://es.kiosko.net/ve/
+[2025-06-24 08:36:19][INFO] <br>Procesando [21/28: 75%] https://es.kiosko.net/bo/
+[2025-06-24 08:36:19][INFO] <br>Procesando [22/28: 79%] https://eldeber.com.bo/
+[2025-06-24 08:36:19][INFO] <br>Procesando [23/28: 82%] https://larazon.bo/
+[2025-06-24 08:36:19][INFO] <br>Procesando [24/28: 86%] https://www.lostiempos.com/
+[2025-06-24 08:36:19][INFO] <br>Procesando [25/28: 89%] https://www.eldiario.net/portal/
+[2025-06-24 08:36:19][INFO] <br>Procesando [26/28: 93%] https://es.kiosko.net/mx/
+[2025-06-24 08:36:19][INFO] <br>Procesando [27/28: 96%] https://es.kiosko.net/pa/
+[2025-06-24 08:36:19][INFO] <br>Procesando [28/28: 100%] https://es.kiosko.net/do/
+[2025-06-24 08:36:19][INFO] <br>
+[2025-06-24 08:36:19][INFO] Scraping finalizado a las 08:36:19. Duración: 75.83s
+[2025-06-24 08:36:19][INFO] Proceso Scraping de Portadas completado exitosamente
+[2025-06-24 08:36:19][INFO] Proceso completado: Scraping de Portadas
+[2025-06-24 08:36:19][INFO] Progreso: 100%
+[2025-06-24 08:36:19][INFO] Iniciando proceso: Actualización de Portadas
+[2025-06-24 08:36:20][INFO] Content-Type: application/json
+[2025-06-24 08:36:20][INFO] 
+[2025-06-24 08:36:20][INFO] {"success":true,"message":"Procesamiento completado. Total insertados: 57"}
+[2025-06-24 08:36:20][INFO] Proceso Actualización de Portadas completado exitosamente
+[2025-06-24 08:36:20][INFO] Proceso completado: Actualización de Portadas
+[2025-06-24 08:36:20][INFO] Todos los procesos se completaron exitosamente
+[2025-06-24 09:40:03][INFO] Iniciando proceso de actualización automática
+[2025-06-24 09:40:03][WARNING] No se encontró registro de última fecha de scraping
+[2025-06-24 09:40:03][INFO] Progreso: 33.333333333333%
+[2025-06-24 09:40:03][INFO] Iniciando proceso: Actualización de Meltwater
+[2025-06-24 09:40:05][INFO] Content-Type: application/json
+[2025-06-24 09:40:05][INFO] 
+[2025-06-24 09:40:05][INFO] {"success":true,"message":"Procesamiento completado: 0 nuevos registros, 14 actualizados, 3 saltados (ya actualizados)."}
+[2025-06-24 09:40:05][INFO] Proceso Actualización de Meltwater completado exitosamente
+[2025-06-24 09:40:05][INFO] Proceso completado: Actualización de Meltwater
+[2025-06-24 09:40:05][INFO] Progreso: 66.666666666667%
+[2025-06-24 09:40:05][INFO] Iniciando proceso: Scraping de Portadas
+[2025-06-24 09:41:24][INFO] Content-type: text/html; charset=UTF-8
+[2025-06-24 09:41:24][INFO] 
+[2025-06-24 09:41:24][INFO] 
+[2025-06-24 09:41:24][INFO] Scraping iniciado a las 09:40:05.
+[2025-06-24 09:41:24][INFO] Total de sitios a scrapear: 28
+[2025-06-24 09:41:24][INFO] <br>Procesando [1/28: 4%] https://es.kiosko.net/uk/np/guardian.html
+[2025-06-24 09:41:24][INFO] <br>Procesando [2/28: 7%] https://es.kiosko.net/uk/np/ft_uk.html
+[2025-06-24 09:41:24][INFO] <br>Procesando [3/28: 11%] https://es.kiosko.net/ar/
+[2025-06-24 09:41:24][INFO] <br>Procesando [4/28: 14%] https://es.kiosko.net/py/
+[2025-06-24 09:41:24][INFO] <br>Procesando [5/28: 18%] https://www.adndigital.com.py/
+[2025-06-24 09:41:24][INFO] <br>Procesando [6/28: 21%] https://www.cronica.com.py/
+[2025-06-24 09:41:24][INFO] <br>Procesando [7/28: 25%] https://independiente.com.py
+[2025-06-24 09:41:24][INFO] <br>Procesando [8/28: 29%] https://www.popular.com.py/
+[2025-06-24 09:41:24][INFO] <br>Procesando [9/28: 32%] https://www.abc.com.py/edicion-impresa/
+[2025-06-24 09:41:24][INFO] <br>Procesando [10/28: 36%] https://www.extra.com.py/
+[2025-06-24 09:41:24][INFO] <br>Procesando [11/28: 39%] https://www.ip.gov.py/ip/
+[2025-06-24 09:41:24][INFO] <br>Procesando [12/28: 43%] https://es.kiosko.net/br/
+[2025-06-24 09:41:24][INFO] <br>Procesando [13/28: 46%] https://es.kiosko.net/us/
+[2025-06-24 09:41:24][INFO] <br>Procesando [14/28: 50%] https://es.kiosko.net/uy/
+[2025-06-24 09:41:24][INFO] <br>Procesando [15/28: 54%] https://www.elobservador.com.uy/
+[2025-06-24 09:41:24][INFO] <br>Procesando [16/28: 57%] https://es.kiosko.net/cl/
+[2025-06-24 09:41:24][INFO] <br>Procesando [17/28: 61%] https://es.kiosko.net/co/
+[2025-06-24 09:41:24][INFO] <br>Procesando [18/28: 64%] https://es.kiosko.net/ec/
+[2025-06-24 09:41:24][INFO] <br>Procesando [19/28: 68%] https://es.kiosko.net/pe/
+[2025-06-24 09:41:24][INFO] <br>Procesando [20/28: 71%] https://es.kiosko.net/ve/
+[2025-06-24 09:41:24][INFO] <br>Procesando [21/28: 75%] https://es.kiosko.net/bo/
+[2025-06-24 09:41:24][INFO] <br>Procesando [22/28: 79%] https://eldeber.com.bo/
+[2025-06-24 09:41:24][INFO] <br>Procesando [23/28: 82%] https://larazon.bo/
+[2025-06-24 09:41:24][INFO] <br>Procesando [24/28: 86%] https://www.lostiempos.com/
+[2025-06-24 09:41:24][INFO] <br>Procesando [25/28: 89%] https://www.eldiario.net/portal/
+[2025-06-24 09:41:24][INFO] <br>Procesando [26/28: 93%] https://es.kiosko.net/mx/
+[2025-06-24 09:41:24][INFO] <br>Procesando [27/28: 96%] https://es.kiosko.net/pa/
+[2025-06-24 09:41:24][INFO] <br>Procesando [28/28: 100%] https://es.kiosko.net/do/
+[2025-06-24 09:41:24][INFO] <br>
+[2025-06-24 09:41:24][INFO] Scraping finalizado a las 09:41:24. Duración: 79.24s
+[2025-06-24 09:41:24][INFO] Proceso Scraping de Portadas completado exitosamente
+[2025-06-24 09:41:24][INFO] Proceso completado: Scraping de Portadas
+[2025-06-24 09:41:24][INFO] Progreso: 100%
+[2025-06-24 09:41:24][INFO] Iniciando proceso: Actualización de Portadas
+[2025-06-24 09:41:25][INFO] Content-Type: application/json
+[2025-06-24 09:41:25][INFO] 
+[2025-06-24 09:41:25][INFO] {"success":true,"message":"Procesamiento completado. Total insertados: 56"}
+[2025-06-24 09:41:25][INFO] Proceso Actualización de Portadas completado exitosamente
+[2025-06-24 09:41:25][INFO] Proceso completado: Actualización de Portadas
+[2025-06-24 09:41:25][INFO] Todos los procesos se completaron exitosamente
+[2025-06-24 10:40:02][INFO] Iniciando proceso de actualización automática
+[2025-06-24 10:40:02][WARNING] No se encontró registro de última fecha de scraping
+[2025-06-24 10:40:02][INFO] Progreso: 33.333333333333%
+[2025-06-24 10:40:02][INFO] Iniciando proceso: Actualización de Meltwater
+[2025-06-24 10:40:04][INFO] Content-Type: application/json
+[2025-06-24 10:40:04][INFO] 
+[2025-06-24 10:40:04][INFO] {"success":true,"message":"Procesamiento completado: 0 nuevos registros, 14 actualizados, 3 saltados (ya actualizados)."}
+[2025-06-24 10:40:04][INFO] Proceso Actualización de Meltwater completado exitosamente
+[2025-06-24 10:40:04][INFO] Proceso completado: Actualización de Meltwater
+[2025-06-24 10:40:04][INFO] Progreso: 66.666666666667%
+[2025-06-24 10:40:04][INFO] Iniciando proceso: Scraping de Portadas
+[2025-06-24 10:41:21][INFO] Content-type: text/html; charset=UTF-8
+[2025-06-24 10:41:21][INFO] 
+[2025-06-24 10:41:21][INFO] 
+[2025-06-24 10:41:21][INFO] Scraping iniciado a las 10:40:05.
+[2025-06-24 10:41:21][INFO] Total de sitios a scrapear: 28
+[2025-06-24 10:41:21][INFO] <br>Procesando [1/28: 4%] https://es.kiosko.net/uk/np/guardian.html
+[2025-06-24 10:41:21][INFO] <br>Procesando [2/28: 7%] https://es.kiosko.net/uk/np/ft_uk.html
+[2025-06-24 10:41:21][INFO] <br>Procesando [3/28: 11%] https://es.kiosko.net/ar/
+[2025-06-24 10:41:21][INFO] <br>Procesando [4/28: 14%] https://es.kiosko.net/py/
+[2025-06-24 10:41:21][INFO] <br>Procesando [5/28: 18%] https://www.adndigital.com.py/
+[2025-06-24 10:41:21][INFO] <br>Procesando [6/28: 21%] https://www.cronica.com.py/
+[2025-06-24 10:41:21][INFO] <br>Procesando [7/28: 25%] https://independiente.com.py
+[2025-06-24 10:41:21][INFO] <br>Procesando [8/28: 29%] https://www.popular.com.py/
+[2025-06-24 10:41:21][INFO] <br>Procesando [9/28: 32%] https://www.abc.com.py/edicion-impresa/
+[2025-06-24 10:41:21][INFO] <br>Procesando [10/28: 36%] https://www.extra.com.py/
+[2025-06-24 10:41:21][INFO] <br>Procesando [11/28: 39%] https://www.ip.gov.py/ip/
+[2025-06-24 10:41:21][INFO] <br>Procesando [12/28: 43%] https://es.kiosko.net/br/
+[2025-06-24 10:41:21][INFO] <br>Procesando [13/28: 46%] https://es.kiosko.net/us/
+[2025-06-24 10:41:21][INFO] <br>Procesando [14/28: 50%] https://es.kiosko.net/uy/
+[2025-06-24 10:41:21][INFO] <br>Procesando [15/28: 54%] https://www.elobservador.com.uy/
+[2025-06-24 10:41:21][INFO] <br>Procesando [16/28: 57%] https://es.kiosko.net/cl/
+[2025-06-24 10:41:21][INFO] <br>Procesando [17/28: 61%] https://es.kiosko.net/co/
+[2025-06-24 10:41:21][INFO] <br>Procesando [18/28: 64%] https://es.kiosko.net/ec/
+[2025-06-24 10:41:21][INFO] <br>Procesando [19/28: 68%] https://es.kiosko.net/pe/
+[2025-06-24 10:41:21][INFO] <br>Procesando [20/28: 71%] https://es.kiosko.net/ve/
+[2025-06-24 10:41:21][INFO] <br>Procesando [21/28: 75%] https://es.kiosko.net/bo/
+[2025-06-24 10:41:21][INFO] <br>Procesando [22/28: 79%] https://eldeber.com.bo/
+[2025-06-24 10:41:21][INFO] <br>Procesando [23/28: 82%] https://larazon.bo/
+[2025-06-24 10:41:21][INFO] <br>Procesando [24/28: 86%] https://www.lostiempos.com/
+[2025-06-24 10:41:21][INFO] <br>Procesando [25/28: 89%] https://www.eldiario.net/portal/
+[2025-06-24 10:41:21][INFO] <br>Procesando [26/28: 93%] https://es.kiosko.net/mx/
+[2025-06-24 10:41:21][INFO] <br>Procesando [27/28: 96%] https://es.kiosko.net/pa/
+[2025-06-24 10:41:21][INFO] <br>Procesando [28/28: 100%] https://es.kiosko.net/do/
+[2025-06-24 10:41:21][INFO] <br>
+[2025-06-24 10:41:21][INFO] Scraping finalizado a las 10:41:21. Duración: 76.14s
+[2025-06-24 10:41:21][INFO] Proceso Scraping de Portadas completado exitosamente
+[2025-06-24 10:41:21][INFO] Proceso completado: Scraping de Portadas
+[2025-06-24 10:41:21][INFO] Progreso: 100%
+[2025-06-24 10:41:21][INFO] Iniciando proceso: Actualización de Portadas
+[2025-06-24 10:41:21][INFO] Content-Type: application/json
+[2025-06-24 10:41:21][INFO] 
+[2025-06-24 10:41:21][INFO] {"success":true,"message":"Procesamiento completado. Total insertados: 56"}
+[2025-06-24 10:41:21][INFO] Proceso Actualización de Portadas completado exitosamente
+[2025-06-24 10:41:21][INFO] Proceso completado: Actualización de Portadas
+[2025-06-24 10:41:21][INFO] Todos los procesos se completaron exitosamente
