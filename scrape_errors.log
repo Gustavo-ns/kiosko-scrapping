@@ -12633,3 +12633,362 @@
 
 [24-Jun-2025 12:25:57 America/Montevideo] Fallback: usando estructura antigua sin timestamps para https://es.kiosko.net/do/np/do_diario_libre.html
 [24-Jun-2025 12:25:57 America/Montevideo] Cover insertado exitosamente con estructura antigua
+[27-Jun-2025 14:20:32 America/Montevideo] Intentando cargar archivo de configuración: C:\MAMP\htdocs\kiosko-scrapping/config.php
+[27-Jun-2025 14:20:32 America/Montevideo] Verificando URL: https://es.kiosko.net/ar/
+[27-Jun-2025 14:20:34 America/Montevideo] Respuesta de https://es.kiosko.net/ar/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:34 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/ar/
+[27-Jun-2025 14:20:34 America/Montevideo] Error en https://es.kiosko.net/ar/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:34 America/Montevideo] Verificando URL: https://es.kiosko.net/py/
+[27-Jun-2025 14:20:35 America/Montevideo] Respuesta de https://es.kiosko.net/py/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:35 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/py/
+[27-Jun-2025 14:20:35 America/Montevideo] Error en https://es.kiosko.net/py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:35 America/Montevideo] Verificando URL: https://www.adndigital.com.py/
+[27-Jun-2025 14:20:36 America/Montevideo] Respuesta de https://www.adndigital.com.py/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:20:36 America/Montevideo] Iniciando scraping de: https://www.adndigital.com.py/
+[27-Jun-2025 14:20:36 America/Montevideo] Error en https://www.adndigital.com.py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:36 America/Montevideo] Verificando URL: https://www.cronica.com.py/
+[27-Jun-2025 14:20:38 America/Montevideo] Respuesta de https://www.cronica.com.py/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:20:38 America/Montevideo] Iniciando scraping de: https://www.cronica.com.py/
+[27-Jun-2025 14:20:39 America/Montevideo] Error en https://www.cronica.com.py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:39 America/Montevideo] Verificando URL: https://independiente.com.py
+[27-Jun-2025 14:20:40 America/Montevideo] Respuesta de https://independiente.com.py - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:20:40 America/Montevideo] Iniciando scraping de: https://independiente.com.py
+[27-Jun-2025 14:20:41 America/Montevideo] Error en https://independiente.com.py: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:41 America/Montevideo] Verificando URL: https://www.popular.com.py/
+[27-Jun-2025 14:20:42 America/Montevideo] Respuesta de https://www.popular.com.py/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:20:42 America/Montevideo] Iniciando scraping de: https://www.popular.com.py/
+[27-Jun-2025 14:20:42 America/Montevideo] Error en https://www.popular.com.py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:42 America/Montevideo] Verificando URL: https://www.abc.com.py/edicion-impresa/
+[27-Jun-2025 14:20:43 America/Montevideo] Respuesta de https://www.abc.com.py/edicion-impresa/ - Status: 200, Content-Type: text/html; charset=utf-8
+[27-Jun-2025 14:20:43 America/Montevideo] Iniciando scraping de: https://www.abc.com.py/edicion-impresa/
+[27-Jun-2025 14:20:44 America/Montevideo] Error en https://www.abc.com.py/edicion-impresa/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:44 America/Montevideo] Verificando URL: https://www.extra.com.py/
+[27-Jun-2025 14:20:45 America/Montevideo] Respuesta de https://www.extra.com.py/ - Status: 200, Content-Type: text/html;charset=UTF-8
+[27-Jun-2025 14:20:45 America/Montevideo] Iniciando scraping de: https://www.extra.com.py/
+[27-Jun-2025 14:20:45 America/Montevideo] Error en https://www.extra.com.py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:45 America/Montevideo] Verificando URL: https://www.ip.gov.py/ip/
+[27-Jun-2025 14:20:49 America/Montevideo] Respuesta de https://www.ip.gov.py/ip/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:20:49 America/Montevideo] Iniciando scraping de: https://www.ip.gov.py/ip/
+[27-Jun-2025 14:20:50 America/Montevideo] Error en https://www.ip.gov.py/ip/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:50 America/Montevideo] Verificando URL: https://es.kiosko.net/br/
+[27-Jun-2025 14:20:50 America/Montevideo] Respuesta de https://es.kiosko.net/br/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:50 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/br/
+[27-Jun-2025 14:20:50 America/Montevideo] Error en https://es.kiosko.net/br/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:50 America/Montevideo] Verificando URL: https://es.kiosko.net/us/
+[27-Jun-2025 14:20:51 America/Montevideo] Respuesta de https://es.kiosko.net/us/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:51 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/us/
+[27-Jun-2025 14:20:51 America/Montevideo] Error en https://es.kiosko.net/us/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:51 America/Montevideo] Verificando URL: https://es.kiosko.net/uy/
+[27-Jun-2025 14:20:52 America/Montevideo] Respuesta de https://es.kiosko.net/uy/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:52 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/uy/
+[27-Jun-2025 14:20:52 America/Montevideo] Error en https://es.kiosko.net/uy/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:52 America/Montevideo] Verificando URL: https://www.elobservador.com.uy/
+[27-Jun-2025 14:20:54 America/Montevideo] Respuesta de https://www.elobservador.com.uy/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:20:54 America/Montevideo] Iniciando scraping de: https://www.elobservador.com.uy/
+[27-Jun-2025 14:20:54 America/Montevideo] Error en https://www.elobservador.com.uy/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:54 America/Montevideo] Verificando URL: https://es.kiosko.net/cl/
+[27-Jun-2025 14:20:54 America/Montevideo] Respuesta de https://es.kiosko.net/cl/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:54 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/cl/
+[27-Jun-2025 14:20:55 America/Montevideo] Error en https://es.kiosko.net/cl/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:55 America/Montevideo] Verificando URL: https://es.kiosko.net/co/
+[27-Jun-2025 14:20:55 America/Montevideo] Respuesta de https://es.kiosko.net/co/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:55 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/co/
+[27-Jun-2025 14:20:56 America/Montevideo] Error en https://es.kiosko.net/co/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:56 America/Montevideo] Verificando URL: https://es.kiosko.net/ec/
+[27-Jun-2025 14:20:56 America/Montevideo] Respuesta de https://es.kiosko.net/ec/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:56 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/ec/
+[27-Jun-2025 14:20:56 America/Montevideo] Error en https://es.kiosko.net/ec/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:56 America/Montevideo] Verificando URL: https://es.kiosko.net/pe/
+[27-Jun-2025 14:20:57 America/Montevideo] Respuesta de https://es.kiosko.net/pe/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:57 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/pe/
+[27-Jun-2025 14:20:57 America/Montevideo] Error en https://es.kiosko.net/pe/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:57 America/Montevideo] Verificando URL: https://es.kiosko.net/ve/
+[27-Jun-2025 14:20:58 America/Montevideo] Respuesta de https://es.kiosko.net/ve/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:58 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/ve/
+[27-Jun-2025 14:20:58 America/Montevideo] Error en https://es.kiosko.net/ve/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:58 America/Montevideo] Verificando URL: https://es.kiosko.net/bo/
+[27-Jun-2025 14:20:58 America/Montevideo] Respuesta de https://es.kiosko.net/bo/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:20:58 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/bo/
+[27-Jun-2025 14:20:59 America/Montevideo] Error en https://es.kiosko.net/bo/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:20:59 America/Montevideo] Verificando URL: https://eldeber.com.bo/
+[27-Jun-2025 14:21:00 America/Montevideo] Respuesta de https://eldeber.com.bo/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:21:00 America/Montevideo] Iniciando scraping de: https://eldeber.com.bo/
+[27-Jun-2025 14:21:00 America/Montevideo] Error en https://eldeber.com.bo/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:21:00 America/Montevideo] Verificando URL: https://larazon.bo/
+[27-Jun-2025 14:21:01 America/Montevideo] Respuesta de https://larazon.bo/ - Status: 403, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:21:01 America/Montevideo] Error: Status code 403 para https://larazon.bo/
+[27-Jun-2025 14:21:01 America/Montevideo] Saltando https://larazon.bo/ debido a respuesta HTTP inválida
+[27-Jun-2025 14:21:01 America/Montevideo] Verificando URL: https://www.lostiempos.com/
+[27-Jun-2025 14:21:03 America/Montevideo] Respuesta de https://www.lostiempos.com/ - Status: 200, Content-Type: text/html; charset=utf-8
+[27-Jun-2025 14:21:03 America/Montevideo] Iniciando scraping de: https://www.lostiempos.com/
+[27-Jun-2025 14:21:03 America/Montevideo] Error en https://www.lostiempos.com/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:21:03 America/Montevideo] Verificando URL: https://www.eldiario.net/portal/
+[27-Jun-2025 14:21:04 America/Montevideo] Respuesta de https://www.eldiario.net/portal/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:21:04 America/Montevideo] Iniciando scraping de: https://www.eldiario.net/portal/
+[27-Jun-2025 14:21:04 America/Montevideo] Error en https://www.eldiario.net/portal/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:21:04 America/Montevideo] Verificando URL: https://es.kiosko.net/mx/
+[27-Jun-2025 14:21:05 America/Montevideo] Respuesta de https://es.kiosko.net/mx/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:21:05 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/mx/
+[27-Jun-2025 14:21:06 America/Montevideo] Error en https://es.kiosko.net/mx/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:21:06 America/Montevideo] Verificando URL: https://es.kiosko.net/pa/
+[27-Jun-2025 14:21:07 America/Montevideo] Respuesta de https://es.kiosko.net/pa/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:21:07 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/pa/
+[27-Jun-2025 14:21:07 America/Montevideo] Error en https://es.kiosko.net/pa/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:21:07 America/Montevideo] Verificando URL: https://es.kiosko.net/do/
+[27-Jun-2025 14:21:07 America/Montevideo] Respuesta de https://es.kiosko.net/do/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:21:07 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/do/
+[27-Jun-2025 14:21:08 America/Montevideo] Error en https://es.kiosko.net/do/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:21:08 America/Montevideo] Verificando URL: https://es.kiosko.net/uk/np/guardian.html
+[27-Jun-2025 14:21:08 America/Montevideo] Respuesta de https://es.kiosko.net/uk/np/guardian.html - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:21:08 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/uk/np/guardian.html
+[27-Jun-2025 14:21:09 America/Montevideo] Error en https://es.kiosko.net/uk/np/guardian.html: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:21:09 America/Montevideo] Verificando URL: https://es.kiosko.net/uk/np/ft_uk.html
+[27-Jun-2025 14:21:09 America/Montevideo] Respuesta de https://es.kiosko.net/uk/np/ft_uk.html - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:21:09 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/uk/np/ft_uk.html
+[27-Jun-2025 14:21:10 America/Montevideo] Error en https://es.kiosko.net/uk/np/ft_uk.html: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:21 America/Montevideo] Intentando cargar archivo de configuración: C:\MAMP\htdocs\kiosko-scrapping/config.php
+[27-Jun-2025 14:24:21 America/Montevideo] Verificando URL: https://es.kiosko.net/ar/
+[27-Jun-2025 14:24:23 America/Montevideo] Respuesta de https://es.kiosko.net/ar/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:23 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/ar/
+[27-Jun-2025 14:24:23 America/Montevideo] Error en https://es.kiosko.net/ar/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:23 America/Montevideo] Verificando URL: https://es.kiosko.net/py/
+[27-Jun-2025 14:24:24 America/Montevideo] Respuesta de https://es.kiosko.net/py/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:24 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/py/
+[27-Jun-2025 14:24:24 America/Montevideo] Error en https://es.kiosko.net/py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:24 America/Montevideo] Verificando URL: https://www.adndigital.com.py/
+[27-Jun-2025 14:24:25 America/Montevideo] Respuesta de https://www.adndigital.com.py/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:25 America/Montevideo] Iniciando scraping de: https://www.adndigital.com.py/
+[27-Jun-2025 14:24:25 America/Montevideo] Error en https://www.adndigital.com.py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:25 America/Montevideo] Verificando URL: https://www.cronica.com.py/
+[27-Jun-2025 14:24:26 America/Montevideo] Respuesta de https://www.cronica.com.py/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:26 America/Montevideo] Iniciando scraping de: https://www.cronica.com.py/
+[27-Jun-2025 14:24:27 America/Montevideo] Error en https://www.cronica.com.py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:27 America/Montevideo] Verificando URL: https://independiente.com.py
+[27-Jun-2025 14:24:28 America/Montevideo] Respuesta de https://independiente.com.py - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:28 America/Montevideo] Iniciando scraping de: https://independiente.com.py
+[27-Jun-2025 14:24:29 America/Montevideo] Error en https://independiente.com.py: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:29 America/Montevideo] Verificando URL: https://www.popular.com.py/
+[27-Jun-2025 14:24:30 America/Montevideo] Respuesta de https://www.popular.com.py/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:30 America/Montevideo] Iniciando scraping de: https://www.popular.com.py/
+[27-Jun-2025 14:24:30 America/Montevideo] Error en https://www.popular.com.py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:30 America/Montevideo] Verificando URL: https://www.abc.com.py/edicion-impresa/
+[27-Jun-2025 14:24:31 America/Montevideo] Respuesta de https://www.abc.com.py/edicion-impresa/ - Status: 200, Content-Type: text/html; charset=utf-8
+[27-Jun-2025 14:24:31 America/Montevideo] Iniciando scraping de: https://www.abc.com.py/edicion-impresa/
+[27-Jun-2025 14:24:32 America/Montevideo] Error en https://www.abc.com.py/edicion-impresa/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:32 America/Montevideo] Verificando URL: https://www.extra.com.py/
+[27-Jun-2025 14:24:33 America/Montevideo] Respuesta de https://www.extra.com.py/ - Status: 200, Content-Type: text/html;charset=UTF-8
+[27-Jun-2025 14:24:33 America/Montevideo] Iniciando scraping de: https://www.extra.com.py/
+[27-Jun-2025 14:24:33 America/Montevideo] Error en https://www.extra.com.py/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:33 America/Montevideo] Verificando URL: https://www.ip.gov.py/ip/
+[27-Jun-2025 14:24:36 America/Montevideo] Respuesta de https://www.ip.gov.py/ip/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:36 America/Montevideo] Iniciando scraping de: https://www.ip.gov.py/ip/
+[27-Jun-2025 14:24:37 America/Montevideo] Error en https://www.ip.gov.py/ip/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:37 America/Montevideo] Verificando URL: https://es.kiosko.net/br/
+[27-Jun-2025 14:24:37 America/Montevideo] Respuesta de https://es.kiosko.net/br/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:37 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/br/
+[27-Jun-2025 14:24:38 America/Montevideo] Error en https://es.kiosko.net/br/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:38 America/Montevideo] Verificando URL: https://es.kiosko.net/us/
+[27-Jun-2025 14:24:38 America/Montevideo] Respuesta de https://es.kiosko.net/us/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:38 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/us/
+[27-Jun-2025 14:24:39 America/Montevideo] Error en https://es.kiosko.net/us/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:39 America/Montevideo] Verificando URL: https://es.kiosko.net/uy/
+[27-Jun-2025 14:24:39 America/Montevideo] Respuesta de https://es.kiosko.net/uy/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:39 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/uy/
+[27-Jun-2025 14:24:40 America/Montevideo] Error en https://es.kiosko.net/uy/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:40 America/Montevideo] Verificando URL: https://www.elobservador.com.uy/
+[27-Jun-2025 14:24:42 America/Montevideo] Respuesta de https://www.elobservador.com.uy/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:42 America/Montevideo] Iniciando scraping de: https://www.elobservador.com.uy/
+[27-Jun-2025 14:24:42 America/Montevideo] Error en https://www.elobservador.com.uy/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:42 America/Montevideo] Verificando URL: https://es.kiosko.net/cl/
+[27-Jun-2025 14:24:42 America/Montevideo] Respuesta de https://es.kiosko.net/cl/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:42 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/cl/
+[27-Jun-2025 14:24:43 America/Montevideo] Error en https://es.kiosko.net/cl/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:43 America/Montevideo] Verificando URL: https://es.kiosko.net/co/
+[27-Jun-2025 14:24:43 America/Montevideo] Respuesta de https://es.kiosko.net/co/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:43 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/co/
+[27-Jun-2025 14:24:44 America/Montevideo] Error en https://es.kiosko.net/co/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:44 America/Montevideo] Verificando URL: https://es.kiosko.net/ec/
+[27-Jun-2025 14:24:44 America/Montevideo] Respuesta de https://es.kiosko.net/ec/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:44 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/ec/
+[27-Jun-2025 14:24:45 America/Montevideo] Error en https://es.kiosko.net/ec/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:45 America/Montevideo] Verificando URL: https://es.kiosko.net/pe/
+[27-Jun-2025 14:24:45 America/Montevideo] Respuesta de https://es.kiosko.net/pe/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:45 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/pe/
+[27-Jun-2025 14:24:46 America/Montevideo] Error en https://es.kiosko.net/pe/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:46 America/Montevideo] Verificando URL: https://es.kiosko.net/ve/
+[27-Jun-2025 14:24:46 America/Montevideo] Respuesta de https://es.kiosko.net/ve/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:46 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/ve/
+[27-Jun-2025 14:24:46 America/Montevideo] Error en https://es.kiosko.net/ve/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:46 America/Montevideo] Verificando URL: https://es.kiosko.net/bo/
+[27-Jun-2025 14:24:47 America/Montevideo] Respuesta de https://es.kiosko.net/bo/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:47 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/bo/
+[27-Jun-2025 14:24:47 America/Montevideo] Error en https://es.kiosko.net/bo/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:47 America/Montevideo] Verificando URL: https://eldeber.com.bo/
+[27-Jun-2025 14:24:48 America/Montevideo] Respuesta de https://eldeber.com.bo/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:48 America/Montevideo] Iniciando scraping de: https://eldeber.com.bo/
+[27-Jun-2025 14:24:48 America/Montevideo] Error en https://eldeber.com.bo/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:48 America/Montevideo] Verificando URL: https://larazon.bo/
+[27-Jun-2025 14:24:49 America/Montevideo] Respuesta de https://larazon.bo/ - Status: 403, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:49 America/Montevideo] Error: Status code 403 para https://larazon.bo/
+[27-Jun-2025 14:24:49 America/Montevideo] Saltando https://larazon.bo/ debido a respuesta HTTP inválida
+[27-Jun-2025 14:24:49 America/Montevideo] Verificando URL: https://www.lostiempos.com/
+[27-Jun-2025 14:24:50 America/Montevideo] Respuesta de https://www.lostiempos.com/ - Status: 200, Content-Type: text/html; charset=utf-8
+[27-Jun-2025 14:24:50 America/Montevideo] Iniciando scraping de: https://www.lostiempos.com/
+[27-Jun-2025 14:24:50 America/Montevideo] Error en https://www.lostiempos.com/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:50 America/Montevideo] Verificando URL: https://www.eldiario.net/portal/
+[27-Jun-2025 14:24:51 America/Montevideo] Respuesta de https://www.eldiario.net/portal/ - Status: 200, Content-Type: text/html; charset=UTF-8
+[27-Jun-2025 14:24:51 America/Montevideo] Iniciando scraping de: https://www.eldiario.net/portal/
+[27-Jun-2025 14:24:51 America/Montevideo] Error en https://www.eldiario.net/portal/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:51 America/Montevideo] Verificando URL: https://es.kiosko.net/mx/
+[27-Jun-2025 14:24:51 America/Montevideo] Respuesta de https://es.kiosko.net/mx/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:51 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/mx/
+[27-Jun-2025 14:24:52 America/Montevideo] Error en https://es.kiosko.net/mx/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:52 America/Montevideo] Verificando URL: https://es.kiosko.net/pa/
+[27-Jun-2025 14:24:52 America/Montevideo] Respuesta de https://es.kiosko.net/pa/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:52 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/pa/
+[27-Jun-2025 14:24:53 America/Montevideo] Error en https://es.kiosko.net/pa/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:53 America/Montevideo] Verificando URL: https://es.kiosko.net/do/
+[27-Jun-2025 14:24:53 America/Montevideo] Respuesta de https://es.kiosko.net/do/ - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:53 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/do/
+[27-Jun-2025 14:24:53 America/Montevideo] Error en https://es.kiosko.net/do/: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:53 America/Montevideo] Verificando URL: https://es.kiosko.net/uk/np/guardian.html
+[27-Jun-2025 14:24:54 America/Montevideo] Respuesta de https://es.kiosko.net/uk/np/guardian.html - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:54 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/uk/np/guardian.html
+[27-Jun-2025 14:24:54 America/Montevideo] Error en https://es.kiosko.net/uk/np/guardian.html: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:54 America/Montevideo] Verificando URL: https://es.kiosko.net/uk/np/ft_uk.html
+[27-Jun-2025 14:24:55 America/Montevideo] Respuesta de https://es.kiosko.net/uk/np/ft_uk.html - Status: 200, Content-Type: text/html
+[27-Jun-2025 14:24:55 America/Montevideo] Iniciando scraping de: https://es.kiosko.net/uk/np/ft_uk.html
+[27-Jun-2025 14:24:55 America/Montevideo] Error en https://es.kiosko.net/uk/np/ft_uk.html: cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+[27-Jun-2025 14:24:55 America/Montevideo] Iniciando limpieza de imágenes huérfanas...
+[27-Jun-2025 14:24:55 America/Montevideo] Imágenes activas en DB: 182
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: 2001_-_Dosmiluno_4294_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Al_D__a_A_M__3003_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Boston_Globe_2821_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Chicago_Tribune_7603_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Clar__n_6387_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Correio_Braziliense_7540_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Correio_Do_Povo_8668_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Correio__7762_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Dallas_Morning_News_9741_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Di__rio_A_Tarde_8127_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Diario_La_Capital_-_Mar_del_Plata_1403_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Diario_de_Yucat__n_6737_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Ancasti_2057_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Chubut_1486_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Comercio_7336_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Cronista_Comercial_4416_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_D__a_de_la_Plata_6430_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Economista_3234_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Espectador_3472_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Esquiu_5078_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Financiero_7261_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Heraldo_8520_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Informador_8930_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Mercurio_3145_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Nacional_5011_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Pa__s_6257_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Ping__ino_1819_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Sol_de_M__xico_4524_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Tel__grafo_3753_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Universal_3909_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: El_Universal_9697_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Esto_9148_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Excelsior_2804_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Expreso_4858_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Folha_de_S__o_Paulo_7879_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Houston_Chronicle_9428_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: L__bero_2240_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Diaria_9122_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Estrella_de_Panam___1701_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Jornada_8807_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Naci__n_3923_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Naci__n_7266_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Patria_3015_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Prensa_8732_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Republica_5106_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Tercera_1013_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: La_Voz_del_Interior_2378_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Los_Angeles_Times_9499_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Meridiano_2037_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: New_York_Post_3673_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: New_York_Times_8872_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: O_Dia_1271_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: O_Estado_de_S__o_Paulo_2185_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: O_Globo_2782_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Ol___2587_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Periodiquito_de_Aragua_6926_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Portada_4758_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Portada_de_Financial_Times__Reino_Unido__2965_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Portada_de_The_Guardian__Reino_Unido__1334_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Reforma_8877_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Rio_Negro_2070_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: San_Francisco_Chronicle_5024_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: The_Washington_Post_7531_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: USA_Today_9828_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado archivo huérfano: Wall_Street_Journal_4021_original.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: 2001_-_Dosmiluno_4294_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Al_D__a_A_M__3003_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Boston_Globe_2821_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Chicago_Tribune_7603_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Clar__n_6387_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Correio_Braziliense_7540_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Correio_Do_Povo_8668_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Correio__7762_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Dallas_Morning_News_9741_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Di__rio_A_Tarde_8127_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Diario_La_Capital_-_Mar_del_Plata_1403_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Diario_de_Yucat__n_6737_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Ancasti_2057_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Chubut_1486_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Comercio_7336_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Cronista_Comercial_4416_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_D__a_de_la_Plata_6430_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Economista_3234_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Espectador_3472_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Esquiu_5078_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Financiero_7261_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Heraldo_8520_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Informador_8930_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Mercurio_3145_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Nacional_5011_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Pa__s_6257_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Ping__ino_1819_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Sol_de_M__xico_4524_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Tel__grafo_3753_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Universal_3909_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: El_Universal_9697_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Esto_9148_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Excelsior_2804_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Expreso_4858_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Folha_de_S__o_Paulo_7879_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Houston_Chronicle_9428_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: L__bero_2240_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Diaria_9122_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Estrella_de_Panam___1701_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Jornada_8807_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Naci__n_3923_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Naci__n_7266_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Patria_3015_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Prensa_8732_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Republica_5106_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Tercera_1013_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: La_Voz_del_Interior_2378_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Los_Angeles_Times_9499_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Meridiano_2037_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: New_York_Post_3673_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: New_York_Times_8872_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: O_Dia_1271_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: O_Estado_de_S__o_Paulo_2185_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: O_Globo_2782_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Ol___2587_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Periodiquito_de_Aragua_6926_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Portada_4758_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Portada_de_Financial_Times__Reino_Unido__2965_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Portada_de_The_Guardian__Reino_Unido__1334_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Reforma_8877_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Rio_Negro_2070_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: San_Francisco_Chronicle_5024_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: The_Washington_Post_7531_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: USA_Today_9828_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Eliminado thumbnail huérfano: Wall_Street_Journal_4021_thumb.webp
+[27-Jun-2025 14:24:55 America/Montevideo] Limpieza completada. Archivos eliminados: 130

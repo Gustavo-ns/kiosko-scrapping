@@ -137,12 +137,22 @@ $hoy = date('Y-m-d');
 if ($lastScrapeDate !== $hoy) {
     echo "Iniciando scraping (última fecha: $lastScrapeDate)...\n";
     
-    // Si la última fecha es de ayer, limpiar la tabla covers
+    // Limpiar covers antiguos (más de 1 día)
     $ayer = date('Y-m-d', strtotime('-1 day'));
-    if ($lastScrapeDate === $ayer) {
-        error_log("Limpiando tabla covers porque la última fecha de scraping es de ayer");
-        $pdo->exec("TRUNCATE TABLE covers");
-        echo "Tabla covers limpiada.\n";
+    if ($lastScrapeDate < $ayer || $lastScrapeDate === '2000-01-01') {
+        error_log("Limpiando covers antiguos porque la última fecha de scraping es: $lastScrapeDate");
+        
+        // En lugar de TRUNCATE, eliminar registros más antiguos para preservar los del día actual
+        $stmt = $pdo->prepare("DELETE FROM covers WHERE DATE(created_at) < ? OR created_at IS NULL");
+        $stmt->execute([$hoy]);
+        $deleted = $stmt->rowCount();
+        
+        echo "Covers antiguos limpiados: $deleted registros.\n";
+        error_log("Eliminados $deleted covers antiguos");
+        
+        // Limpiar imágenes huérfanas después de limpiar la DB
+        $orphanedImages = cleanOrphanedImages();
+        echo "Imágenes huérfanas limpiadas: $orphanedImages archivos.\n";
     }
     
     $update = $pdo->prepare("REPLACE INTO configs (name, value) VALUES ('last_scrape_date', :fecha)");
@@ -287,16 +297,64 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
         
         // Limpiar la URL de la imagen antes de procesarla
         $urlImg = cleanImageUrl($urlImg);
-        error_log("Procesando cover - País: $country, URL: $urlImg, Fuente: $sourceLink");
+        error_log("Procesando cover - País: $country, Título: $alt, URL: $urlImg, Fuente: $sourceLink");
         
-        // Verificar si ya existe la imagen
-        $stmt = $pdo->prepare('SELECT 1 FROM covers WHERE country=:c AND original_link=:u');
-        $stmt->execute([':c' => $country, ':u' => $urlImg]);
-        if ($stmt->fetchColumn()) {
-            error_log("Cover ya existe para $country y $urlImg");
+        // Verificar si ya existe una portada exacta (country + source + title)
+        $stmt = $pdo->prepare('SELECT id, original_link, updated_at FROM covers WHERE country=:c AND source=:s AND title=:t');
+        $stmt->execute([':c' => $country, ':s' => $sourceLink, ':t' => $alt]);
+        $existing = $stmt->fetch();
+        
+        if ($existing) {
+            // Verificar si la imagen ha cambiado
+            if ($existing['original_link'] === $urlImg) {
+                error_log("Cover exacto ya existe y no ha cambiado: $country/$alt");
+                // Actualizar solo la fecha para mantener el registro fresco
+                $pdo->prepare("UPDATE covers SET updated_at = NOW() WHERE id = :id")
+                    ->execute([':id' => $existing['id']]);
+                return true;
+            }
+            
+            // La imagen ha cambiado, actualizar registro existente
+            error_log("Cover existe pero imagen ha cambiado. Actualizando para: $country/$alt");
+            
+            $imageResult = saveImageLocally($urlImg, $country, $alt);
+            if (!$imageResult) {
+                error_log("Error al guardar nueva imagen localmente para $urlImg");
+                return false;
+            }
+            
+            // Actualizar registro existente
+            $update = $pdo->prepare("UPDATE covers SET 
+                original_link = :l,
+                thumbnail_url = :th,
+                original_url = :or,
+                updated_at = NOW()
+                WHERE id = :id");
+            
+            $update->execute([
+                ':l' => $urlImg,
+                ':th' => $imageResult['thumbnail'],
+                ':or' => $imageResult['original'],
+                ':id' => $existing['id']
+            ]);
+            
+            error_log("Cover actualizado exitosamente para $sourceLink");
             return true;
         }
-
+        
+        // Verificar si existe un cover diferente para el mismo país y fuente
+        $stmt = $pdo->prepare('SELECT id, title, original_link FROM covers WHERE country=:c AND source=:s AND title != :t');
+        $stmt->execute([':c' => $country, ':s' => $sourceLink, ':t' => $alt]);
+        $oldCover = $stmt->fetch();
+        
+        if ($oldCover) {
+            error_log("Encontrado cover anterior diferente para $country/$sourceLink: '{$oldCover['title']}' -> '$alt'");
+            // Eliminar el cover anterior del mismo país y fuente pero diferente título
+            $pdo->prepare("DELETE FROM covers WHERE id = :id")->execute([':id' => $oldCover['id']]);
+            error_log("Cover anterior eliminado: {$oldCover['title']}");
+        }
+        
+        // Crear nuevo registro
         $imageResult = saveImageLocally($urlImg, $country, $alt);
         if (!$imageResult) {
             error_log("Error al guardar imagen localmente para $urlImg");
@@ -308,12 +366,10 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
         try {
             $ins = $pdo->prepare("INSERT INTO covers(
                 country, title, source, original_link, 
-                thumbnail_url, original_url, 
-                created_at
+                thumbnail_url, original_url, created_at, updated_at
             ) VALUES(
                 :c, :t, :s, :l, 
-                :th, :or,
-                NOW()
+                :th, :or, NOW(), NOW()
             )");
             
             $params = [
@@ -325,44 +381,46 @@ function storeCover($country, $alt, $urlImg, $sourceLink) {
                 ':or' => $imageResult['original']
             ];
             
-            error_log("Intentando insertar cover con parámetros: " . print_r($params, true));
+            error_log("Intentando insertar nuevo cover con parámetros: " . print_r($params, true));
             
             $ins->execute($params);
-            error_log("Cover insertado exitosamente");
+            error_log("Cover insertado exitosamente: $country/$alt");
             return true;
             
         } catch (PDOException $e) {
-            // Si la tabla no tiene las columnas de timestamp, usar estructura antigua
-            if (strpos($e->getMessage(), 'created_at') !== false) {
-                error_log("Fallback: usando estructura antigua sin timestamps para $sourceLink");
-                $ins_fallback = $pdo->prepare("INSERT INTO covers(
-                    country, title, source, original_link, 
-                    thumbnail_url, original_url
-                ) VALUES(
-                    :c, :t, :s, :l, 
-                    :th, :or
-                )");
-                
-                $ins_fallback->execute([
-                    ':c' => $country, 
-                    ':t' => $alt, 
-                    ':s' => $sourceLink, 
-                    ':l' => $urlImg,
-                    ':th' => $imageResult['thumbnail'],
-                    ':or' => $imageResult['original']
-                ]);
-                error_log("Cover insertado exitosamente con estructura antigua");
-                return true;
-            } else {
-                error_log("Error al insertar cover: " . $e->getMessage());
-                throw $e;
+            // Si hay error de duplicado, intentar actualizar
+            if ($e->getCode() == '23000') {
+                error_log("Duplicado detectado, intentando actualizar: " . $e->getMessage());
+                try {
+                    $update = $pdo->prepare("UPDATE covers SET 
+                        original_link = :l,
+                        thumbnail_url = :th,
+                        original_url = :or,
+                        updated_at = NOW()
+                        WHERE country = :c AND source = :s AND title = :t");
+                    
+                    $update->execute([
+                        ':c' => $country, 
+                        ':t' => $alt, 
+                        ':s' => $sourceLink, 
+                        ':l' => $urlImg,
+                        ':th' => $imageResult['thumbnail'],
+                        ':or' => $imageResult['original']
+                    ]);
+                    error_log("Cover actualizado por duplicado: $country/$alt");
+                    return true;
+                } catch (PDOException $e2) {
+                    error_log("Error en actualización por duplicado: " . $e2->getMessage());
+                    return false;
+                }
             }
+            error_log("Error al insertar cover: " . $e->getMessage());
+            return false;
         }
     } catch (Exception $e) {
         error_log("Error in storeCover: " . $e->getMessage());
         return false;
     }
-    return true;
 }
 
 function extractHiresFromFusionScript($crawler) {
@@ -450,6 +508,61 @@ function verifyHttpResponse($url) {
         error_log("Error verificando respuesta HTTP para $url: " . $e->getMessage());
         return false;
     }
+}
+
+function cleanOrphanedImages() {
+    error_log("Iniciando limpieza de imágenes huérfanas...");
+    
+    $pdo = getPDO();
+    $cleanedCount = 0;
+    
+    // Obtener todas las URLs de imágenes activas en la base de datos
+    $stmt = $pdo->query("SELECT thumbnail_url, original_url FROM covers");
+    $activeImages = [];
+    
+    while ($row = $stmt->fetch()) {
+        if ($row['thumbnail_url']) {
+            $activeImages[] = basename($row['thumbnail_url']);
+        }
+        if ($row['original_url']) {
+            $activeImages[] = basename($row['original_url']);
+        }
+    }
+    
+    error_log("Imágenes activas en DB: " . count($activeImages));
+    
+    // Limpiar directorio de originales
+    $coversDir = __DIR__ . '/images/covers';
+    if (is_dir($coversDir)) {
+        $files = glob($coversDir . '/*.webp');
+        foreach ($files as $file) {
+            $filename = basename($file);
+            if (!in_array($filename, $activeImages)) {
+                if (unlink($file)) {
+                    $cleanedCount++;
+                    error_log("Eliminado archivo huérfano: $filename");
+                }
+            }
+        }
+    }
+    
+    // Limpiar directorio de thumbnails
+    $thumbsDir = $coversDir . '/thumbnails';
+    if (is_dir($thumbsDir)) {
+        $files = glob($thumbsDir . '/*.webp');
+        foreach ($files as $file) {
+            $filename = basename($file);
+            if (!in_array($filename, $activeImages)) {
+                if (unlink($file)) {
+                    $cleanedCount++;
+                    error_log("Eliminado thumbnail huérfano: $filename");
+                }
+            }
+        }
+    }
+    
+    error_log("Limpieza completada. Archivos eliminados: $cleanedCount");
+    return $cleanedCount;
 }
 
 $total = 0;
